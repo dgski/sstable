@@ -27,5 +27,12 @@ int main() {
   const auto timeForASingleRead = readsPerf.second / ENTRIES_COUNT;
   std::cout << "timeForASingleRead=" << timeForASingleRead << " result=" << readsPerf.first << std::endl;
 
+  const auto removesPerf = utils::benchmark([&db, &entries] {
+    for (const auto& [key, value] : entries) {
+      db.remove(key);
+    }
+    return true;
+  }, 10);
+
   return 0;
 }
