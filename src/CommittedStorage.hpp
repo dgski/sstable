@@ -10,7 +10,7 @@
 
 #include "Utils.hpp"
 
-class ComittedStorage {
+class CommittedStorage {
   const std::string _path;
   utils::ReadOnlyFileMappedArray<char> _file;
   static constexpr size_t INDEX_KEY_SIZE = 30;
@@ -30,7 +30,7 @@ class ComittedStorage {
     }
   }
 public:
-  ComittedStorage(std::string_view path) : _path(path) {
+  CommittedStorage(std::string_view path) : _path(path) {
     remapFileArray();
     auto it = _file.begin();
     while (it != _file.end()) {

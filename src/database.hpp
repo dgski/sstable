@@ -18,7 +18,7 @@ class Database {
   const std::string _path;
   UncommittedStorage _uncommitted;
   utils::ProtectedResource<UncommittedStorage> _committing;
-  ComittedStorage _committed;
+  CommittedStorage _committed;
 public:
   Database(std::string_view path)
     : _path(path),
