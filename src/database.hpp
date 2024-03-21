@@ -17,7 +17,12 @@ public:
     std::ifstream scanUncommitted(_path, std::ios::binary);
     std::string line;
     while (std::getline(scanUncommitted, line)) {
-      _data[line.substr(0, line.find('\0'))] = line.substr(line.find('\0') + 1);
+      const auto isSet = line.find('\0');
+      if (isSet != std::string::npos) {
+        _data[line.substr(0, isSet)] = line.substr(isSet + 1);
+      } else {
+        _data.erase(line);
+      }
     }
     _uncommitted.open(path.data(), std::ios::app | std::ios::binary);
   }
@@ -26,28 +31,13 @@ public:
     _data[std::string(key)] = std::string(value);
   }
   std::optional<std::string> get(std::string_view key) {
-    std::ifstream scanUncommitted(_path, std::ios::binary);
-    std::string line;
-    while (std::getline(scanUncommitted, line)) {
-      if (line.substr(0, line.find('\0')) == key) {
-        return line.substr(line.find('\0') + 1);
-      }
+    if (auto it = _data.find(std::string(key)); it != _data.end()) {
+      return it->second;
     }
     return std::nullopt;
   }
   void remove(std::string_view key) {
-    std::ofstream temp(_path + ".tmp", std::ios::binary);
-    std::ifstream scanUncommitted(_path, std::ios::binary);
-    std::string line;
-    while (std::getline(scanUncommitted, line)) {
-      if (line.substr(0, line.find('\0')) != key) {
-        temp << line << std::endl;
-      }
-    }
-    temp.close();
-    scanUncommitted.close();
-    std::filesystem::remove(_path);
-    std::filesystem::rename(_path + ".tmp", _path);
+    _uncommitted << key << std::endl;
     _data.erase(std::string(key));
   }
 };

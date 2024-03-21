@@ -33,6 +33,8 @@ int main() {
     }
     return true;
   }, 10);
+  const auto timeForASingleRemove = removesPerf.second / ENTRIES_COUNT;
+  std::cout << "timeForASingleRemove=" << timeForASingleRemove << " result=" << removesPerf.first << std::endl;
 
   return 0;
 }
