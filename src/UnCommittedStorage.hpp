@@ -25,6 +25,10 @@ public:
     _uncommitted.open(path.data(), std::ios::app | std::ios::binary);
   }
   void set(std::string_view key, std::string_view value) {
+    auto it = _data.find(std::string(key));
+    if (it != _data.end() && it->second == value) {
+      return;
+    }
     _uncommitted << key << '\0' << value << std::endl;
     _data[std::string(key)] = std::string(value);
   }
@@ -35,6 +39,10 @@ public:
     return std::nullopt;
   }
   void remove(std::string_view key) {
+    auto it = _data.find(std::string(key));
+    if (it == _data.end() && it->second == "\0") {
+      return;
+    }
     _uncommitted << key << std::endl;
     _data[std::string(key)] = "\0";
   }
