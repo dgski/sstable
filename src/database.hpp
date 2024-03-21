@@ -18,7 +18,7 @@ class Database {
   const std::string _path;
   UncommittedStorage _uncommitted;
   utils::ProtectedResource<UncommittedStorage> _committing;
-  CommittedStorage _committed;
+  utils::ProtectedResource<CommittedStorage> _committed;
 public:
   Database(std::string_view path)
     : _path(path),
@@ -54,7 +54,7 @@ public:
         return result;
       }
     }
-    return _committed.get(key);
+    return _committed.access()->get(key);
   }
 
   void prepareCommit() {
@@ -75,7 +75,7 @@ public:
     }
 
     UncommittedStorage tmp(_path + "/committing.log");
-    _committed.add(tmp.data().begin(), tmp.data().end());
+    _committed.access()->add(tmp.data().begin(), tmp.data().end());
     _committing.access()->clear();
   }
 };
