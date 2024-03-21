@@ -8,7 +8,6 @@
 #include <map>
 #include <cstring>
 
-
 class ComittedStorage {
   const std::string _path;
   struct IndexEntry { char key[30]; size_t pos; };
