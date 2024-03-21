@@ -112,4 +112,19 @@ namespace utils {
     }
   }
 
+  // Iterate each key-value pair in the buffer
+  // stop iteration by returning false from the callback
+  void forEachKeyValue(
+    std::string_view contents,
+    std::function<bool(std::string_view, std::string_view)> func)
+  {
+    forEachLine(contents, [&](std::string_view line) {
+      const auto keyEndPos = line.find('\0');
+      if (keyEndPos != std::string_view::npos) {
+        return func(line.substr(0, keyEndPos), line.substr(keyEndPos + 1));
+      }
+      return true;
+    });
+  }
+
 } // namespace utils

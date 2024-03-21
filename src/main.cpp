@@ -47,9 +47,14 @@ int main() {
   for (const auto& [key, value] : entries) {
     db.set(key, value);
   }
-  db.commit();
-  db.prepareCommit();
-  db.commit();
+
+  const auto commitBenchmark = utils::benchmark([&db] {
+    db.commit();
+    db.prepareCommit();
+    db.commit();
+    return true;
+  }, 1);
+  std::cout << "commitTimeTakenNs=" << commitBenchmark.second << std::endl;
 
   const auto readsPerfAfterCommit = utils::benchmark([&db, &entries] {
     std::optional<std::string> result;

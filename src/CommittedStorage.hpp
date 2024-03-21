@@ -32,14 +32,11 @@ class CommittedStorage {
 public:
   CommittedStorage(std::string_view path) : _path(path) {
     remapFileArray();
-    utils::forEachLine(
+    utils::forEachKeyValue(
       std::string_view(_file.begin(), _file.end()),
-      [&](std::string_view line)
+      [&](std::string_view key, std::string_view value)
       {
-        const auto keyEndPos = line.find('\0');
-        if (keyEndPos != std::string_view::npos) {
-          addToIndex(line.substr(0, keyEndPos), 0);
-        }
+        addToIndex(key, 0);
         return true;
       });
   }
@@ -56,20 +53,16 @@ public:
     }
 
     std::optional<std::string> result;
-    utils::forEachLine(
+    utils::forEachKeyValue(
       std::string_view(_file.begin() + it->pos, _file.end()),
-      [&](std::string_view line)
+      [&](std::string_view k, std::string_view v)
       {
-        const auto keyEndPos = line.find('\0');
-        if (keyEndPos != std::string_view::npos) {
-          if (line.substr(0, keyEndPos) == key) {
-            result = std::string(line.substr(keyEndPos + 1));
-            return false;
-          }
+        if (k == key) {
+          result = std::string(v);
+          return false;
         }
         return true;
       });
-
     return result;
   }
 
@@ -77,14 +70,14 @@ public:
   void add(It begin, It end) {
     // Load current data
     std::map<std::string, std::string> data;
-    std::ifstream scanCommitted(_path, std::ios::binary);
-    std::string line;
-    while (std::getline(scanCommitted, line)) {
-      const auto pos = line.find('\0');
-      if (pos != std::string::npos) {
-        data[line.substr(0, pos)] = line.substr(pos + 1);
-      }
-    }
+    utils::forEachKeyValue(
+      std::string_view(_file.begin(), _file.end()),
+      [&](std::string_view key, std::string_view value)
+      {
+        data[std::string(key)] = value;
+        return true;
+      });
+
     // Add new entries
     for (auto it = begin; it != end; ++it) {
       if (it->second == "\0") {
