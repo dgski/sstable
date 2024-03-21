@@ -75,7 +75,7 @@ public:
     }
 
     UncommittedStorage tmp(_path + "/committing.log");
-    _committed.access()->add(tmp.data().begin(), tmp.data().end());
+    _committed.access()->add(tmp.data());
     _committing.access()->clear();
   }
 };

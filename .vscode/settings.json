@@ -94,6 +94,8 @@
         "cinttypes": "cpp",
         "numbers": "cpp",
         "semaphore": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "filesystem": "cpp",
+        "ranges": "cpp"
     }
 }
