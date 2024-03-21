@@ -13,6 +13,8 @@
 #include "Utils.hpp"
 
 class Database {
+  static constexpr auto MAX_UNCOMMITTED_ACTIONS = 10000;
+
   const std::string _path;
   UncommittedStorage _uncommitted;
   utils::ProtectedResource<UncommittedStorage> _committing;
@@ -31,9 +33,15 @@ public:
 
   void set(std::string_view key, std::string_view value) {
     _uncommitted.set(key, value);
+    if (_uncommitted.size() > MAX_UNCOMMITTED_ACTIONS) {
+      prepareCommit();
+    }
   }
   void remove(std::string_view key) {
     _uncommitted.remove(key);
+    if (_uncommitted.size() > MAX_UNCOMMITTED_ACTIONS) {
+      prepareCommit();
+    }
   }
   std::optional<std::string> get(std::string_view key) {
     if (auto result = _uncommitted.get(key); result) {
@@ -49,9 +57,6 @@ public:
   }
 
   void prepareCommit() {
-    if (_uncommitted.empty()) {
-      return;
-    }
     {
       auto committingHandle = _committing.access();
       if (!committingHandle->empty()) {
