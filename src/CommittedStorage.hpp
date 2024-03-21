@@ -13,13 +13,14 @@
 class ComittedStorage {
   const std::string _path;
   utils::ReadOnlyFileMappedArray<char> _file;
-  struct IndexEntry { char key[30]; size_t pos; };
+  static constexpr size_t INDEX_KEY_SIZE = 30;
+  struct IndexEntry { char key[INDEX_KEY_SIZE]; size_t pos; };
   std::vector<IndexEntry> _index;
 
   void addToIndex(std::string_view key, size_t pos) {
     auto& currentKeyIndex = _index.emplace_back();
-    std::memcpy(currentKeyIndex.key, key.data(), 29);
-    currentKeyIndex.key[29] = '\0';
+    std::memcpy(currentKeyIndex.key, key.data(), INDEX_KEY_SIZE - 1);
+    currentKeyIndex.key[INDEX_KEY_SIZE - 1] = '\0';
     currentKeyIndex.pos = pos;
   }
 
@@ -44,7 +45,7 @@ public:
   }
 
   std::optional<std::string> get(std::string_view key) {
-    auto keySlice = key.substr(0, 29);
+    auto keySlice = key.substr(0, INDEX_KEY_SIZE - 1);
     auto it = std::lower_bound(
       _index.begin(), _index.end(), keySlice,
       [](const IndexEntry& index, std::string_view key) {
