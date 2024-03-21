@@ -91,6 +91,9 @@
         "format": "cpp",
         "stdfloat": "cpp",
         "stop_token": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "numbers": "cpp",
+        "semaphore": "cpp",
+        "span": "cpp"
     }
 }
