@@ -41,7 +41,7 @@ int main() {
   const auto timeForASingleRemove = removesPerf.second / ENTRIES_COUNT;
   std::cout
     << "timeForASingleRemove=" << timeForASingleRemove
-      << " result=" << removesPerf.first << std::endl;
+    << " result=" << removesPerf.first << std::endl;
 
   // Re-add
   for (const auto& [key, value] : entries) {
