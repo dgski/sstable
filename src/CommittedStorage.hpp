@@ -8,8 +8,11 @@
 #include <map>
 #include <cstring>
 
+#include "Utils.hpp"
+
 class ComittedStorage {
   const std::string _path;
+  utils::ReadOnlyFileMappedArray<char> _file;
   struct IndexEntry { char key[30]; size_t pos; };
   std::vector<IndexEntry> _index;
 
@@ -19,15 +22,24 @@ class ComittedStorage {
     currentKeyIndex.key[29] = '\0';
     currentKeyIndex.pos = pos;
   }
+
+  void remapFileArray() {
+    if (!_index.empty()) {
+      _file.remap(_path);
+    }
+  }
 public:
   ComittedStorage(std::string_view path) : _path(path) {
-    std::ifstream scanCommitted(_path, std::ios::binary);
-    std::string line;
-    while (std::getline(scanCommitted, line)) {
-      const auto pos = line.find('\0');
-      if (pos != std::string::npos) {
-        addToIndex(line.substr(0, pos), scanCommitted.tellg());
+    remapFileArray();
+    auto it = _file.begin();
+    while (it != _file.end()) {
+      const auto pos = std::find(it, _file.end(), '\0');
+      if (pos == _file.end()) {
+        break;
       }
+      const auto key = std::string_view(&*it, pos - it);
+      addToIndex(key, it - _file.begin());
+      it = pos + 1;
     }
   }
 
@@ -41,18 +53,24 @@ public:
     if (it == _index.end()) {
       return std::nullopt;
     }
-    std::ifstream committed(_path, std::ios::binary);
-    committed.seekg(it->pos);
-    std::string line;
 
-    while (std::getline(committed, line)) {
-      const auto pos = line.find('\0');
-      if (pos != std::string::npos) {
-        if (line.substr(0, pos) == key) {
-          return line.substr(pos + 1);
+    auto fileIt = _file.begin() + it->pos;
+    std::string_view line;
+    while (fileIt != _file.end()) {
+      const auto lineEndPos = std::find(fileIt, _file.end(), '\n');
+      if (lineEndPos == _file.end()) {
+        break;
+      }
+      line = std::string_view(fileIt, lineEndPos);
+      const auto keyEndPos = line.find('\0');
+      if (keyEndPos != std::string_view::npos) {
+        if (line.substr(0, keyEndPos) == key) {
+          return std::string(line.substr(keyEndPos + 1));
         }
       }
+      fileIt += line.size() + 1;
     }
+
     return std::nullopt;
   }
 
@@ -85,5 +103,7 @@ public:
       addToIndex(key, committed.tellp());
       committed << key << '\0' << value << std::endl;
     }
+
+    remapFileArray();
   }
 };

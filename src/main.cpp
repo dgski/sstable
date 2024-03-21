@@ -5,8 +5,8 @@
 
 int main() {
   Database db("db");
-  
-  constexpr auto ENTRIES_COUNT = 10;
+
+  constexpr auto ENTRIES_COUNT = 10000;
   const auto entries = utils::createRandomEntries(ENTRIES_COUNT, 100, 100);
 
   const auto writesPerf = utils::benchmark([&db, &entries] {

@@ -5,6 +5,13 @@
 #include <functional>
 #include <iostream>
 #include <mutex>
+#include <optional>
+#include <span>
+
+#include <boost/interprocess/managed_mapped_file.hpp>
+#include <boost/interprocess/file_mapping.hpp>
+#include <boost/interprocess/mapped_region.hpp>
+
 
 namespace utils {
   template<typename F>
@@ -64,6 +71,31 @@ namespace utils {
     auto access() {
       return ProtectedResourceHandle(_resource, _mutex);
     }
+  };
+
+  template<typename T>
+  class ReadOnlyFileMappedArray {
+    boost::interprocess::file_mapping _file;
+    boost::interprocess::mapped_region _region;
+    std::span<T> _data;
+  public:
+    ReadOnlyFileMappedArray() {}
+    ReadOnlyFileMappedArray(std::string_view path) {
+      remap(path);
+    }
+    void remap(std::string_view path) {
+      _file = boost::interprocess::file_mapping(path.data(), boost::interprocess::read_only);
+      _region = boost::interprocess::mapped_region(_file, boost::interprocess::read_only);
+      _data = std::span<T>(reinterpret_cast<T*>(_region.get_address()), _region.get_size() / sizeof(T));
+    }
+    auto begin() { return _data.begin(); }
+    auto begin() const { return _data.begin(); }
+    auto end() { return _data.end(); }
+    auto end() const { return _data.end(); }
+    auto size() const { return _data.size(); }
+    auto empty() const { return _data.empty(); }
+    auto& operator[](size_t index) { return _data[index]; }
+    auto& operator[](size_t index) const { return _data[index]; }
   };
 
 } // namespace utils
