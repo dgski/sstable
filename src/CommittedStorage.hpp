@@ -12,8 +12,24 @@ class ComittedStorage {
   const std::string _path;
   struct IndexEntry { char key[30]; size_t pos; };
   std::vector<IndexEntry> _index;
+
+  void addToIndex(std::string_view key, size_t pos) {
+    auto& currentKeyIndex = _index.emplace_back();
+    std::memcpy(currentKeyIndex.key, key.data(), 29);
+    currentKeyIndex.key[29] = '\0';
+    currentKeyIndex.pos = pos;
+  }
 public:
-  ComittedStorage(std::string_view path) : _path(path) {}
+  ComittedStorage(std::string_view path) : _path(path) {
+    std::ifstream scanCommitted(_path, std::ios::binary);
+    std::string line;
+    while (std::getline(scanCommitted, line)) {
+      const auto pos = line.find('\0');
+      if (pos != std::string::npos) {
+        addToIndex(line.substr(0, pos), scanCommitted.tellg());
+      }
+    }
+  }
 
   std::optional<std::string> get(std::string_view key) {
     auto keySlice = key.substr(0, 29);
@@ -66,11 +82,7 @@ public:
     // Write back to file
     std::ofstream committed(_path, std::ios::binary);
     for (const auto& [key, value] : data) {
-      const auto pos = committed.tellp();
-      auto& currentKeyIndex = _index.emplace_back();
-      std::memcpy(currentKeyIndex.key, key.data(), 29);
-      currentKeyIndex.key[29] = '\0';
-      currentKeyIndex.pos = pos;
+      addToIndex(key, committed.tellp());
       committed << key << '\0' << value << std::endl;
     }
   }
