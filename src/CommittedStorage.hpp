@@ -80,7 +80,7 @@ public:
     _index.clear();
 
     // Write back to file
-    std::ofstream committed(_path, std::ios::app | std::ios::binary);
+    std::ofstream committed(_path, std::ios::out | std::ios::binary);
     for (const auto& [key, value] : data) {
       addToIndex(key, committed.tellp());
       committed << key << '\0' << value << std::endl;

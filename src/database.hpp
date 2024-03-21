@@ -24,9 +24,10 @@ public:
     : _path(path),
     _uncommitted(std::string(path) + "/uncommitted.log"),
     _committing(std::string(path) + "/committing.log"),
-    _committed(std::string(path) + "/committed.log") {
+    _committed(std::string(path) + "/committed.bin") {
   }
   ~Database() {
+    commit();
     prepareCommit();
     commit();
   }

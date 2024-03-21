@@ -6,7 +6,7 @@
 int main() {
   Database db("db");
   
-  constexpr auto ENTRIES_COUNT = 100000;
+  constexpr auto ENTRIES_COUNT = 10;
   const auto entries = utils::createRandomEntries(ENTRIES_COUNT, 100, 100);
 
   const auto writesPerf = utils::benchmark([&db, &entries] {
@@ -47,6 +47,7 @@ int main() {
   for (const auto& [key, value] : entries) {
     db.set(key, value);
   }
+  db.commit();
   db.prepareCommit();
   db.commit();
 
