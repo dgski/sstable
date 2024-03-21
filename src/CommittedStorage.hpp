@@ -44,7 +44,7 @@ public:
 
   template<typename It>
   void add(It begin, It end) {
-    // Load current into std::unordered_map
+    // Load current data
     std::map<std::string, std::string> data;
     std::ifstream scanCommitted(_path, std::ios::binary);
     std::string line;
