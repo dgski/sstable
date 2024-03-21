@@ -32,16 +32,16 @@ class CommittedStorage {
 public:
   CommittedStorage(std::string_view path) : _path(path) {
     remapFileArray();
-    auto it = _file.begin();
-    while (it != _file.end()) {
-      const auto pos = std::find(it, _file.end(), '\0');
-      if (pos == _file.end()) {
-        break;
-      }
-      const auto key = std::string_view(&*it, pos - it);
-      addToIndex(key, it - _file.begin());
-      it = pos + 1;
-    }
+    utils::forEachLine(
+      std::string_view(_file.begin(), _file.end()),
+      [&](std::string_view line)
+      {
+        const auto keyEndPos = line.find('\0');
+        if (keyEndPos != std::string_view::npos) {
+          addToIndex(line.substr(0, keyEndPos), 0);
+        }
+        return true;
+      });
   }
 
   std::optional<std::string> get(std::string_view key) {
@@ -55,24 +55,22 @@ public:
       return std::nullopt;
     }
 
-    auto fileIt = _file.begin() + it->pos;
-    std::string_view line;
-    while (fileIt != _file.end()) {
-      const auto lineEndPos = std::find(fileIt, _file.end(), '\n');
-      if (lineEndPos == _file.end()) {
-        break;
-      }
-      line = std::string_view(fileIt, lineEndPos);
-      const auto keyEndPos = line.find('\0');
-      if (keyEndPos != std::string_view::npos) {
-        if (line.substr(0, keyEndPos) == key) {
-          return std::string(line.substr(keyEndPos + 1));
+    std::optional<std::string> result;
+    utils::forEachLine(
+      std::string_view(_file.begin() + it->pos, _file.end()),
+      [&](std::string_view line)
+      {
+        const auto keyEndPos = line.find('\0');
+        if (keyEndPos != std::string_view::npos) {
+          if (line.substr(0, keyEndPos) == key) {
+            result = std::string(line.substr(keyEndPos + 1));
+            return false;
+          }
         }
-      }
-      fileIt += line.size() + 1;
-    }
+        return true;
+      });
 
-    return std::nullopt;
+    return result;
   }
 
   template<typename It>

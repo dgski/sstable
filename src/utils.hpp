@@ -98,4 +98,18 @@ namespace utils {
     auto& operator[](size_t index) const { return _data[index]; }
   };
 
+  // Iterate each line in the buffer
+  // stop iteration by returning false from the callback
+  template<typename Func>
+  void forEachLine(std::string_view contents, Func&& func) {
+    auto it = contents.begin();
+    while (it != contents.end()) {
+      const auto lineEnd = std::find(it, contents.end(), '\n');
+      if (!func(std::string_view(&*it, lineEnd - it))) {
+        return;
+      }
+      it = lineEnd + 1;
+    }
+  }
+
 } // namespace utils
