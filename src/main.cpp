@@ -1,7 +1,7 @@
 #include <iostream>
 
-#include "utils.hpp"
-#include "database.hpp"
+#include "Utils.hpp"
+#include "Database.hpp"
 
 int main() {
   Database db("db");
