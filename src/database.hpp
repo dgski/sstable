@@ -23,6 +23,10 @@ public:
     _committing(std::string(path) + "/committing.log"),
     _committed(std::string(path) + "/committed.log") {
   }
+  ~Database() {
+    commit();
+  }
+
   void set(std::string_view key, std::string_view value) {
     _uncommitted.set(key, value);
   }
@@ -43,9 +47,10 @@ public:
     if (_uncommitted.empty() ||  !_committing.empty()) {
       return;
     }
-
     std::filesystem::rename(_path + "/uncommitted.log", _path + "/committing.log");
+    _committing.data().swap(_uncommitted.data());
     _uncommitted.clear();
+    _committed.add(_committing.data().begin(), _committing.data().end());
     _committing.clear();
   }
 };

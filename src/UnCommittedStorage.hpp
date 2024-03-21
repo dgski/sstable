@@ -30,13 +30,13 @@ public:
   }
   std::optional<std::string> get(std::string_view key) {
     if (auto it = _data.find(std::string(key)); it != _data.end()) {
-      return it->second;
+      return (it->second == "\0") ? std::nullopt : std::optional(it->second);
     }
     return std::nullopt;
   }
   void remove(std::string_view key) {
     _uncommitted << key << std::endl;
-    _data.erase(std::string(key));
+    _data[std::string(key)] = "\0";
   }
   void clear() {
     _uncommitted.close();
@@ -49,5 +49,8 @@ public:
   }
   bool empty() const {
     return _data.empty();
+  }
+  auto& data() {
+    return _data;
   }
 };
