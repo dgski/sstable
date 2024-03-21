@@ -8,20 +8,19 @@
 #include <map>
 #include <cstring>
 
-struct Index {
-  char key[30];
-  size_t pos;
-};
 
 class ComittedStorage {
   const std::string _path;
-  std::vector<Index> _index;
+  struct IndexEntry { char key[30]; size_t pos; };
+  std::vector<IndexEntry> _index;
 public:
   ComittedStorage(std::string_view path) : _path(path) {}
 
   std::optional<std::string> get(std::string_view key) {
     auto keySlice = key.substr(0, 29);
-    auto it = std::lower_bound(_index.begin(), _index.end(), keySlice, [](const Index& index, std::string_view key) {
+    auto it = std::lower_bound(
+      _index.begin(), _index.end(), keySlice,
+      [](const IndexEntry& index, std::string_view key) {
       return std::string_view(index.key) < key;
     });
     if (it == _index.end()) {
