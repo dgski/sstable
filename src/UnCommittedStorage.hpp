@@ -19,7 +19,7 @@ public:
       if (isSet != std::string::npos) {
         _data[line.substr(0, isSet)] = line.substr(isSet + 1);
       } else {
-        _data.erase(line);
+        _data[line] = "\0";
       }
     }
     _uncommitted.open(path.data(), std::ios::app | std::ios::binary);

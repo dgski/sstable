@@ -6,7 +6,7 @@
 int main() {
   Database db("db");
   
-  constexpr auto ENTRIES_COUNT = 1000;
+  constexpr auto ENTRIES_COUNT = 1000000;
   const auto entries = utils::createRandomEntries(ENTRIES_COUNT, 100, 100);
 
   const auto writesPerf = utils::benchmark([&db, &entries] {
@@ -14,7 +14,7 @@ int main() {
       db.set(key, value);
     }
     return true;
-  }, 10);
+  }, 1);
   const auto timeForASingleWrite = writesPerf.second / ENTRIES_COUNT;
   std::cout
     << "timeForASingleWrite=" << timeForASingleWrite
@@ -26,7 +26,7 @@ int main() {
       result = db.get(key);
     }
     return result;
-  }, 10);
+  }, 1);
   const auto timeForASingleRead = readsPerf.second / ENTRIES_COUNT;
   std::cout
     << "timeForASingleRead=" << timeForASingleRead
@@ -37,7 +37,7 @@ int main() {
       db.remove(key);
     }
     return true;
-  }, 10);
+  }, 1);
   const auto timeForASingleRemove = removesPerf.second / ENTRIES_COUNT;
   std::cout
     << "timeForASingleRemove=" << timeForASingleRemove
@@ -47,6 +47,7 @@ int main() {
   for (const auto& [key, value] : entries) {
     db.set(key, value);
   }
+  db.prepareCommit();
   db.commit();
 
   const auto readsPerfAfterCommit = utils::benchmark([&db, &entries] {
@@ -55,7 +56,7 @@ int main() {
       result = db.get(key);
     }
     return result;
-  }, 10);
+  }, 1);
   const auto timeForASingleReadAfterCommit = readsPerfAfterCommit.second / ENTRIES_COUNT;
   std::cout
     << "timeForASingleReadAfterCommit=" << timeForASingleReadAfterCommit

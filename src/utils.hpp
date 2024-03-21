@@ -3,6 +3,8 @@
 #include <chrono>
 #include <ctype.h>
 #include <functional>
+#include <iostream>
+#include <mutex>
 
 namespace utils {
   template<typename F>
@@ -37,4 +39,31 @@ namespace utils {
     }
     return result;
   }
+
+  template<typename T>
+  class ProtectedResource {
+    T _resource;
+    std::mutex _mutex;
+  public:
+    template<typename... Args>
+    ProtectedResource(Args&&... args) : _resource(std::forward<Args>(args)...) {}
+
+    class ProtectedResourceHandle {
+      T& _resource;
+      std::unique_lock<std::mutex> _lock;
+    public:
+      ProtectedResourceHandle(T& resource, std::mutex& mutex)
+        : _resource(resource), _lock(mutex) {}
+      ProtectedResourceHandle(ProtectedResourceHandle&&) = default;
+      ProtectedResourceHandle& operator=(ProtectedResourceHandle&&) = default;
+      ProtectedResourceHandle(const ProtectedResourceHandle&) = delete;
+      ProtectedResourceHandle& operator=(const ProtectedResourceHandle&) = delete;
+      T& operator*() { return _resource; }
+      T* operator->() { return &_resource; }
+    };
+    auto access() {
+      return ProtectedResourceHandle(_resource, _mutex);
+    }
+  };
+
 } // namespace utils

@@ -10,11 +10,12 @@
 
 #include "UnCommittedStorage.hpp"
 #include "CommittedStorage.hpp"
+#include "Utils.hpp"
 
 class Database {
   const std::string _path;
   UncommittedStorage _uncommitted;
-  UncommittedStorage _committing;
+  utils::ProtectedResource<UncommittedStorage> _committing;
   ComittedStorage _committed;
 public:
   Database(std::string_view path)
@@ -24,6 +25,7 @@ public:
     _committed(std::string(path) + "/committed.log") {
   }
   ~Database() {
+    prepareCommit();
     commit();
   }
 
@@ -37,20 +39,37 @@ public:
     if (auto result = _uncommitted.get(key); result) {
       return result;
     }
-    if (auto result = _committing.get(key); result) {
-      return result;
+    {
+      auto committingHandle = _committing.access();
+      if (auto result = committingHandle->get(key); result) {
+        return result;
+      }
     }
     return _committed.get(key);
   }
 
-  void commit() {
-    if (_uncommitted.empty() ||  !_committing.empty()) {
+  void prepareCommit() {
+    if (_uncommitted.empty()) {
       return;
     }
-    std::filesystem::rename(_path + "/uncommitted.log", _path + "/committing.log");
-    _committing.data().swap(_uncommitted.data());
-    _uncommitted.clear();
-    _committed.add(_committing.data().begin(), _committing.data().end());
-    _committing.clear();
+    {
+      auto committingHandle = _committing.access();
+      if (!committingHandle->empty()) {
+        return;
+      }
+      std::filesystem::rename(_path + "/uncommitted.log", _path + "/committing.log");
+      committingHandle->data().swap(_uncommitted.data());
+      _uncommitted.clear();
+    }
+  }
+
+  void commit() {
+    if (_committing.access()->empty()) {
+      return;
+    }
+
+    UncommittedStorage tmp(_path + "/committing.log");
+    _committed.add(tmp.data().begin(), tmp.data().end());
+    _committing.access()->clear();
   }
 };
