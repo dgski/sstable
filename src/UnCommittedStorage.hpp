@@ -44,4 +44,10 @@ public:
     _uncommitted.open(_path, std::ios::app | std::ios::binary);
     _data.clear();
   }
+  bool size() const {
+    return _data.size();
+  }
+  bool empty() const {
+    return _data.empty();
+  }
 };

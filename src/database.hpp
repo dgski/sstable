@@ -14,11 +14,13 @@
 class Database {
   const std::string _path;
   UncommittedStorage _uncommitted;
+  UncommittedStorage _committing;
   ComittedStorage _committed;
 public:
   Database(std::string_view path)
     : _path(path),
     _uncommitted(std::string(path) + "/uncommitted.log"),
+    _committing(std::string(path) + "/committing.log"),
     _committed(std::string(path) + "/committed.log") {
   }
   void set(std::string_view key, std::string_view value) {
@@ -28,15 +30,22 @@ public:
     _uncommitted.remove(key);
   }
   std::optional<std::string> get(std::string_view key) {
-    auto it =  _uncommitted.get(key);
-    if (it) {
-      return it;
+    if (auto result = _uncommitted.get(key); result) {
+      return result;
+    }
+    if (auto result = _committing.get(key); result) {
+      return result;
     }
     return _committed.get(key);
   }
 
   void commit() {
-    std::filesystem::rename(_path + "/uncommitted.log", _path + "/committed.log");
+    if (_uncommitted.empty() ||  !_committing.empty()) {
+      return;
+    }
+
+    std::filesystem::rename(_path + "/uncommitted.log", _path + "/committing.log");
     _uncommitted.clear();
+    _committing.clear();
   }
 };

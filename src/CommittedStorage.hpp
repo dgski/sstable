@@ -27,4 +27,7 @@ public:
 
     return result;
   }
+
+  void add(std::string_view newDataPath) {
+  }
 };
