@@ -97,9 +97,7 @@ public:
     remaining.assign(incoming.begin(), incoming.end());
     std::sort(remaining.begin(), remaining.end());
     for (const auto& [key, value] : remaining) {
-      if (value != "\0") {
-        writeToTmp(key, value);
-      }
+      writeToTmp(key, value);
     }
 
     std::filesystem::rename(_path + ".tmp", _path);

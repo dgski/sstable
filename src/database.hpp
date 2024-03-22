@@ -18,13 +18,22 @@ class Database {
   const std::string _path;
   UncommittedStorage _uncommitted;
   utils::ProtectedResource<UncommittedStorage> _committing;
-  utils::ProtectedResource<CommittedStorage> _committed;
+
+  size_t _nextCommitId = 0;
+  utils::ProtectedResource<std::map<size_t, CommittedStorage, std::greater<>>> _committed;
 public:
   Database(std::string_view path)
     : _path(path),
     _uncommitted(std::string(path) + "/uncommitted.log"),
-    _committing(std::string(path) + "/committing.log"),
-    _committed(std::string(path) + "/committed.bin") {
+    _committing(std::string(path) + "/committing.log")
+  {
+    for (const auto& entry : std::filesystem::directory_iterator(path)) {
+      if (entry.path().extension() == ".data") {
+        const size_t segmentId = std::stoull(entry.path().stem().string());
+        _nextCommitId = std::max(_nextCommitId, segmentId + 1);
+        _committed.access()->emplace(segmentId, CommittedStorage(entry.path().string()));
+      }
+    }
   }
   ~Database() {
     commit();
@@ -54,7 +63,14 @@ public:
         return result;
       }
     }
-    return _committed.access()->get(key);
+
+    for (auto& [_, committed] : *_committed.access()) {
+      if (auto result = committed.get(key); result) {
+        return result;
+      }
+    }
+
+    return std::nullopt;
   }
 
   void prepareCommit() {
@@ -75,7 +91,10 @@ public:
     }
 
     UncommittedStorage tmp(_path + "/committing.log");
-    _committed.access()->add(tmp.data());
+    const size_t commitSegmentId = _nextCommitId++;
+    CommittedStorage newCommitted(std::format("{}/{}.data", _path, commitSegmentId));
+    newCommitted.add(tmp.data());
+    _committed.access()->emplace(commitSegmentId, std::move(newCommitted));
     _committing.access()->clear();
   }
 };
