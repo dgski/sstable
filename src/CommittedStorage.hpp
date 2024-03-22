@@ -29,6 +29,11 @@ class CommittedStorage {
       _file.remap(_path);
     }
   }
+
+  static CommittedStorage merge(CommittedStorage& newer, CommittedStorage& older) {
+    throw std::runtime_error("Not implemented");
+  }
+
 public:
   CommittedStorage(std::string_view path) : _path(path) {
     remapFileArray();
