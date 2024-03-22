@@ -7,6 +7,9 @@
 #include <optional>
 #include <fstream>
 #include <filesystem>
+#include <set>
+#include <format>
+#include <ranges>
 
 #include "UnCommittedStorage.hpp"
 #include "CommittedStorage.hpp"
@@ -18,9 +21,11 @@ class Database {
   const std::string _path;
   UncommittedStorage _uncommitted;
   utils::ProtectedResource<UncommittedStorage> _committing;
-
-  size_t _nextCommitId = 0;
   utils::ProtectedResource<std::map<size_t, CommittedStorage, std::greater<>>> _committed;
+  
+  // Accessed by background thread only after init
+  size_t _nextCommitId = 0;
+  std::set<size_t> _knownSegments;
 public:
   Database(std::string_view path)
     : _path(path),
@@ -32,6 +37,7 @@ public:
         const size_t segmentId = std::stoull(entry.path().stem().string());
         _nextCommitId = std::max(_nextCommitId, segmentId + 1);
         _committed.access()->emplace(segmentId, CommittedStorage(entry.path().string()));
+        _knownSegments.insert(segmentId);
       }
     }
   }
@@ -95,6 +101,34 @@ public:
     CommittedStorage newCommitted(std::format("{}/{}.data", _path, commitSegmentId));
     newCommitted.add(tmp.data());
     _committed.access()->emplace(commitSegmentId, std::move(newCommitted));
+    _knownSegments.insert(commitSegmentId);
     _committing.access()->clear();
+  }
+
+  void merge() {
+    constexpr auto MAX_SEGMENT_SIZE = 1024 * 1024 * 10; // 10MB
+    // Merge adjacent segments if they are small enough
+    auto first = _knownSegments.begin();
+    while ((first != _knownSegments.end()) && (std::next(first) != _knownSegments.end())) {
+      auto second = std::next(first);
+      const auto firstSize = std::filesystem::file_size(std::format("{}/{}.data", _path, *first));
+      const auto secondSize = std::filesystem::file_size(std::format("{}/{}.data", _path, *second));
+      const auto combinedSize = firstSize + secondSize;
+      if (combinedSize > MAX_SEGMENT_SIZE) {
+        first = second;
+        continue;
+      }
+
+      const auto newSegmentId = _nextCommitId++;
+      auto merged = CommittedStorage::merge(
+        std::format("{}/{}.data", _path, newSegmentId),
+        std::format("{}/{}.data", _path, *first),
+        std::format("{}/{}.data", _path, *second));
+
+      auto committedHandle = _committed.access();
+      committedHandle->erase(*first);
+      committedHandle->erase(*second);
+      committedHandle->emplace(newSegmentId, std::move(merged));
+    }
   }
 };

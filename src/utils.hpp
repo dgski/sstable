@@ -121,4 +121,23 @@ namespace utils {
     }
   }
 
+  class KeyValueIteration {
+    std::string_view _contents;
+  public:
+    KeyValueIteration(std::string_view contents) : _contents(contents) {}
+    struct KeyValue {
+      std::string_view key;
+      std::string_view value;
+    };
+    std::optional<KeyValue> next() {
+      if (_contents.empty()) {
+        return std::nullopt;
+      }
+      const auto lineEnd = std::find(_contents.begin(), _contents.end(), '\n');
+      const auto [key, value] = split(std::string_view(_contents.begin(), lineEnd));
+      _contents = std::string_view(lineEnd + 1, _contents.end());
+      return KeyValue{key, value};
+    }
+  };
+
 } // namespace utils

@@ -29,11 +29,6 @@ class CommittedStorage {
       _file.remap(_path);
     }
   }
-
-  static CommittedStorage merge(CommittedStorage& newer, CommittedStorage& older) {
-    throw std::runtime_error("Not implemented");
-  }
-
 public:
   CommittedStorage(std::string_view path) : _path(path) {
     remapFileArray();
@@ -102,5 +97,50 @@ public:
 
     std::filesystem::rename(_path + ".tmp", _path);
     remapFileArray();
+  }
+
+  static CommittedStorage merge(
+    std::string_view path, std::string_view newer, std::string_view older)
+  {
+    utils::ReadOnlyFileMappedArray<char> newerFile(newer);
+    utils::ReadOnlyFileMappedArray<char> olderFile(older);
+    utils::KeyValueIteration newerIt(std::string_view(newerFile.begin(), newerFile.end()));
+    utils::KeyValueIteration olderIt(std::string_view(olderFile.begin(), olderFile.end()));
+
+    std::ofstream ouput(path.data(), std::ios::out | std::ios::binary);
+    const auto write = [&](std::string_view key, std::string_view value) {
+      ouput << key << '\0' << value << std::endl;
+    };
+
+    auto newValue = newerIt.next();
+    auto oldValue = olderIt.next();
+    while (true) {
+      if (!newValue && !oldValue) {
+        break;
+      }
+      if (!newValue) {
+        write(oldValue->key, oldValue->value);
+        oldValue = olderIt.next();
+        continue;
+      }
+      if (!oldValue) {
+        write(newValue->key, newValue->value);
+        newValue = newerIt.next();
+        continue;
+      }
+      if (newValue->key < oldValue->key) {
+        write(newValue->key, newValue->value);
+        newValue = newerIt.next();
+      } else if (newValue->key > oldValue->key) {
+        write(oldValue->key, oldValue->value);
+        oldValue = olderIt.next();
+      } else {
+        write(newValue->key, newValue->value);
+        newValue = newerIt.next();
+        oldValue = olderIt.next();
+      }
+    }
+
+    return CommittedStorage(path);
   }
 };
