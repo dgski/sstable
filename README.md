@@ -1,8 +1,9 @@
 # Simple SSTable Storage Implementation
 
 ## TODO
-- Multiple committed data segments
-- Merging committed data segments
+- Multiple committed data segments:
+    - Have a list of data segments... start at highest id, continue down
+    - Merge the segments in a safe way
 - Add simple repl / runtime
 - BloomFilters
 
