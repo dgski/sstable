@@ -68,7 +68,7 @@ public:
         }
         return true;
       });
-    return result;
+    return (!result || *result == "\0") ? std::nullopt : result;
   }
 
   void add(std::unordered_map<std::string, std::string>& incoming) {
@@ -84,10 +84,8 @@ public:
       [&](std::string_view key, std::string_view value)
     {
       if (auto it = incoming.find(std::string(key)); it != incoming.end()) {
-        if (it->second != "\0") {
-          writeToTmp(it->first, it->second);
-          incoming.erase(it);
-        }
+        writeToTmp(it->first, it->second);
+        incoming.erase(it);
       } else {
         writeToTmp(key, value);
       }
