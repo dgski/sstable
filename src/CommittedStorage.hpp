@@ -36,7 +36,8 @@ public:
       std::string_view(_file.begin(), _file.end()),
       [&](std::string_view key, std::string_view)
       {
-        addToIndex(key, 0);
+        const auto pos = key.data() - _file.data();
+        addToIndex(key, pos);
         return true;
       });
   }
@@ -48,7 +49,7 @@ public:
       [](const IndexEntry& index, std::string_view key) {
       return std::string_view(index.key) < key;
     });
-    if (it == _index.end()) {
+    if (it == _index.end() || std::string_view(it->key) != keySlice) {
       return std::nullopt;
     }
 
@@ -63,6 +64,7 @@ public:
         }
         return true;
       });
+
     return (!result || *result == "\0") ?
       std::nullopt :
       std::optional(std::string(result->begin(), result->end()));

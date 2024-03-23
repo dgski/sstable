@@ -96,6 +96,8 @@ namespace utils {
     auto empty() const { return _data.empty(); }
     auto& operator[](size_t index) { return _data[index]; }
     auto& operator[](size_t index) const { return _data[index]; }
+    auto data() { return _data.data(); }
+    auto data() const { return _data.data(); }
   };
 
   std::pair<std::string_view, std::string_view> split(std::string_view line) {
