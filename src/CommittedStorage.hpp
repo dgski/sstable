@@ -13,7 +13,7 @@
 class CommittedStorage {
   const std::string _path;
   utils::ReadOnlyFileMappedArray<char> _file;
-  static constexpr size_t INDEX_KEY_SIZE = 30;
+  static constexpr size_t INDEX_KEY_SIZE = 10;
   struct IndexEntry { char key[INDEX_KEY_SIZE]; size_t pos; };
   std::vector<IndexEntry> _index;
 
@@ -34,7 +34,7 @@ public:
     remapFileArray();
     utils::forEachKeyValue(
       std::string_view(_file.begin(), _file.end()),
-      [&](std::string_view key, std::string_view value)
+      [&](std::string_view key, std::string_view)
       {
         addToIndex(key, 0);
         return true;
@@ -42,7 +42,7 @@ public:
   }
 
   std::optional<std::string> get(std::string_view key) {
-    auto keySlice = key.substr(0, INDEX_KEY_SIZE - 1);
+    const auto keySlice = key.substr(0, INDEX_KEY_SIZE - 1);
     auto it = std::lower_bound(
       _index.begin(), _index.end(), keySlice,
       [](const IndexEntry& index, std::string_view key) {
@@ -52,18 +52,20 @@ public:
       return std::nullopt;
     }
 
-    std::optional<std::string> result;
+    std::optional<std::string_view> result;
     utils::forEachKeyValue(
       std::string_view(_file.begin() + it->pos, _file.end()),
       [&](std::string_view k, std::string_view v)
       {
         if (k == key) {
-          result = std::string(v);
+          result = v;
           return false;
         }
         return true;
       });
-    return (!result || *result == "\0") ? std::nullopt : result;
+    return (!result || *result == "\0") ?
+      std::nullopt :
+      std::optional(std::string(result->begin(), result->end()));
   }
 
   void add(std::unordered_map<std::string, std::string>& incoming) {
@@ -87,7 +89,7 @@ public:
       return true;
     });
 
-    thread_local std::vector<std::pair<std::string, std::string>> remaining;
+    thread_local std::vector<std::pair<std::string_view, std::string_view>> remaining;
     remaining.reserve(incoming.size());
     remaining.assign(incoming.begin(), incoming.end());
     std::sort(remaining.begin(), remaining.end());
@@ -99,7 +101,7 @@ public:
     remapFileArray();
   }
 
-  static CommittedStorage merge(
+  static void merge(
     std::string_view path, std::string_view newer, std::string_view older)
   {
     utils::ReadOnlyFileMappedArray<char> newerFile(newer);
@@ -141,6 +143,6 @@ public:
       }
     }
 
-    return CommittedStorage(path);
+    return;
   }
 };
