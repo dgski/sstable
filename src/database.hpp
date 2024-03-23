@@ -16,7 +16,7 @@
 #include "Utils.hpp"
 
 class Database {
-  static constexpr auto MAX_UNCOMMITTED_ACTIONS = 10000;
+  static constexpr auto MAX_UNCOMMITTED_ACTIONS = 100000;
 
   const std::string _path;
   UncommittedStorage _uncommitted;
@@ -24,13 +24,23 @@ class Database {
   utils::ProtectedResource<std::map<size_t, CommittedStorage, std::greater<>>> _committed;
   
   // Accessed by background thread only after init
+  std::atomic<bool> _running = true;
   size_t _nextCommitId = 0;
   std::set<size_t> _knownSegments;
+  std::thread _backgroundThread;
+
+  void background() {
+    while (_running.load(std::memory_order_relaxed)) {
+      commit();
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+  }
 public:
   Database(std::string_view path)
     : _path(path),
     _uncommitted(std::string(path) + "/uncommitted.log"),
-    _committing(std::string(path) + "/committing.log")
+    _committing(std::string(path) + "/committing.log"),
+    _backgroundThread(&Database::background, this)
   {
     for (const auto& entry : std::filesystem::directory_iterator(path)) {
       if (entry.path().extension() == ".data") {
@@ -45,6 +55,8 @@ public:
     commit();
     prepareCommit();
     commit();
+    _running.store(false, std::memory_order_relaxed);
+    _backgroundThread.join();
   }
 
   void set(std::string_view key, std::string_view value) {
@@ -92,6 +104,8 @@ public:
   }
 
   void commit() {
+    //merge();
+
     if (_committing.access()->empty()) {
       return;
     }
@@ -106,8 +120,13 @@ public:
   }
 
   void merge() {
-    constexpr auto MAX_SEGMENT_SIZE = 1024 * 1024 * 10; // 10MB
-    // Merge adjacent segments if they are small enough
+    constexpr auto MAX_SEGMENT_SIZE = 1024 * 1024 * 1; // 1MB
+    std::vector<size_t> removed;
+    struct IdAndStorage {
+      size_t segmentId;
+      CommittedStorage storage;
+    };
+    std::vector<IdAndStorage> added;
     auto first = _knownSegments.begin();
     while ((first != _knownSegments.end()) && (std::next(first) != _knownSegments.end())) {
       auto second = std::next(first);
@@ -120,15 +139,35 @@ public:
       }
 
       const auto newSegmentId = _nextCommitId++;
-      auto merged = CommittedStorage::merge(
+      CommittedStorage::merge(
         std::format("{}/{}.data", _path, newSegmentId),
         std::format("{}/{}.data", _path, *first),
         std::format("{}/{}.data", _path, *second));
-
-      auto committedHandle = _committed.access();
-      committedHandle->erase(*first);
-      committedHandle->erase(*second);
-      committedHandle->emplace(newSegmentId, std::move(merged));
+      added.push_back(IdAndStorage{newSegmentId, CommittedStorage(std::format("{}/{}.data", _path, newSegmentId))});
+      removed.push_back(*first);
+      removed.push_back(*second);
+      first = std::next(second);
     }
+
+    std::cout << "All merges scheduled" << std::endl;
+
+    auto committedHandle = _committed.access();
+    for (const auto segmentId : removed) {
+      _knownSegments.erase(segmentId);
+      std::cout << "erased from knownSegments" << std::endl;
+      committedHandle->erase(segmentId);
+      std::cout << "erase from committedHandle" << std::endl;
+      std::filesystem::remove(std::format("{}/{}.data", _path, segmentId));
+      std::cout << "removed file" << std::endl;
+    }
+
+    std::cout << "All removes done" << std::endl;
+
+    for (auto& committed : added) {
+      _knownSegments.insert(committed.segmentId);
+      committedHandle->emplace(committed.segmentId, std::move(committed.storage));
+    }
+
+    std::cout << "All merges done" << std::endl;
   }
 };
