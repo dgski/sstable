@@ -3,18 +3,20 @@
 #include "Utils.hpp"
 #include "Database.hpp"
 
-int main() {
-  Database db("db");
+int main(int argc, char* argv[]) {
+  assert(argc == 2);
+  const auto ENTRIES_COUNT = std::stoi(argv[1]);
+  const auto entries = utils::createRandomEntries(ENTRIES_COUNT, 30, 100);
 
-  constexpr auto ENTRIES_COUNT = 10000;
-  const auto entries = utils::createRandomEntries(ENTRIES_COUNT, 100, 100);
+  std::filesystem::create_directories("db");
+  Database db("db");
 
   const auto writesPerf = utils::benchmark([&db, &entries] {
     for (const auto& [key, value] : entries) {
       db.set(key, value);
     }
     return true;
-  }, 10);
+  }, 1);
   const auto timeForASingleWrite = writesPerf.second / ENTRIES_COUNT;
   std::cout
     << "timeForASingleWrite=" << timeForASingleWrite
@@ -26,7 +28,7 @@ int main() {
       result = db.get(key);
     }
     return result;
-  }, 10);
+  }, 1);
   const auto timeForASingleRead = readsPerf.second / ENTRIES_COUNT;
   std::cout
     << "timeForASingleRead=" << timeForASingleRead
@@ -37,7 +39,7 @@ int main() {
       db.remove(key);
     }
     return true;
-  }, 10);
+  }, 1);
   const auto timeForASingleRemove = removesPerf.second / ENTRIES_COUNT;
   std::cout
     << "timeForASingleRemove=" << timeForASingleRemove
@@ -48,6 +50,7 @@ int main() {
     db.set(key, value);
   }
 
+  /*
   const auto commitBenchmark = utils::benchmark([&db] {
     db.commit();
     db.prepareCommit();
@@ -55,6 +58,7 @@ int main() {
     return true;
   }, 1);
   std::cout << "commitTimeTakenNs=" << commitBenchmark.second << std::endl;
+  */
 
   const auto readsPerfAfterCommit = utils::benchmark([&db, &entries] {
     std::optional<std::string> result;
