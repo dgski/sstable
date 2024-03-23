@@ -32,7 +32,7 @@ class Database {
   void background() {
     while (_running.load(std::memory_order_relaxed)) {
       commit();
-      std::this_thread::sleep_for(std::chrono::microseconds(100));
+      std::this_thread::sleep_for(std::chrono::seconds(1));
     }
   }
 public:
@@ -120,7 +120,7 @@ public:
   }
 
   void merge() {
-    constexpr auto MAX_SEGMENT_SIZE = 1024 * 1024 * 50; // MB;
+    constexpr auto MAX_SEGMENT_SIZE = 1024 * 1024 * 100; // MB;
     std::vector<size_t> removed;
     struct IdAndStorage {
       size_t segmentId;
