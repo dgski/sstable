@@ -77,8 +77,7 @@ public:
       return &output;
     }
     {
-      auto committingHandle = _committing.access();
-      if (auto result = committingHandle->get(output, key); result) {
+      if (auto result = _committing.access()->get(output, key); result) {
         return &output;
       }
     }
