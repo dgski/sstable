@@ -5,10 +5,39 @@
 #include <unordered_map>
 #include <optional>
 #include <fstream>
+#include <boost/unordered/unordered_flat_map.hpp>
+
+struct Hash {
+  using is_transparent = void;
+  size_t operator()(const std::string& key) const {
+    return std::hash<std::string>()(key);
+  }
+  size_t operator()(const std::string_view& key) const {
+    return std::hash<std::string_view>()(key);
+  }
+};
+
+struct Eq {
+  using is_transparent = void;
+  bool operator()(const std::string& lhs, const std::string& rhs) const {
+    return lhs == rhs;
+  }
+  bool operator()(const std::string_view& lhs, const std::string_view& rhs) const {
+    return lhs == rhs;
+  }
+  bool operator()(const std::string& lhs, const std::string_view& rhs) const {
+    return lhs == rhs;
+  }
+  bool operator()(const std::string_view& lhs, const std::string& rhs) const {
+    return lhs == rhs;
+  }
+};
+
+using HashTable = boost::unordered_flat_map<std::string, std::string, Hash, Eq>;
 
 class UncommittedStorage {
   const std::string _path;
-  std::unordered_map<std::string, std::string> _data;
+  HashTable _data;
   std::ofstream _uncommitted;
 public:
   UncommittedStorage(std::string_view path) : _path(path) {
@@ -25,26 +54,26 @@ public:
     _uncommitted.open(path.data(), std::ios::app | std::ios::binary);
   }
   void set(std::string_view key, std::string_view value) {
-    auto it = _data.find(std::string(key));
+    auto it = _data.find(key);
     if (it != _data.end() && it->second == value) {
       return;
     }
     _uncommitted << key << '\0' << value << std::endl;
-    _data[std::string(key)] = std::string(value);
+    _data[key] = std::string(value);
   }
   std::optional<std::string> get(std::string_view key) {
-    if (auto it = _data.find(std::string(key)); it != _data.end()) {
+    if (auto it = _data.find(key); it != _data.end()) {
       return (it->second == "\0") ? std::nullopt : std::optional(it->second);
     }
     return std::nullopt;
   }
   void remove(std::string_view key) {
-    auto it = _data.find(std::string(key));
+    auto it = _data.find(key);
     if (it != _data.end() && it->second == "\0") {
       return;
     }
     _uncommitted << key << std::endl;
-    _data[std::string(key)] = "\0";
+    _data[key] = "\0";
   }
   void clear() {
     _uncommitted.close();

@@ -70,7 +70,8 @@ public:
       std::optional(std::string(result->begin(), result->end()));
   }
 
-  void add(std::unordered_map<std::string, std::string>& incoming) {
+  template<typename ContainerType>
+  void add(ContainerType& incoming) {
     _index.clear();
     std::ofstream tmp(_path + ".tmp", std::ios::out | std::ios::binary);
     const auto writeToTmp = [&](std::string_view key, std::string_view value) {
@@ -82,7 +83,7 @@ public:
       std::string_view(_file.begin(), _file.end()),
       [&](std::string_view key, std::string_view value)
     {
-      if (auto it = incoming.find(std::string(key)); it != incoming.end()) {
+      if (auto it = incoming.find(key); it != incoming.end()) {
         writeToTmp(it->first, it->second);
         incoming.erase(it);
       } else {
