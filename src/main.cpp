@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
     << " result=" << writesPerf.first << std::endl;
 
   const auto readsPerf = utils::benchmark([&db, &entries] {
-    std::optional<std::string> result;
+    std::string* result = nullptr;
     for (const auto& [key, value] : entries) {
       result = db.get(key);
     }
@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
   const auto timeForASingleRead = readsPerf.second / ENTRIES_COUNT;
   std::cout
     << "timeForASingleRead=" << timeForASingleRead
-    << " result=" << readsPerf.first.value_or("NULL") << std::endl;
+    << " result=" << (readsPerf.first ? readsPerf.first->data() : "NULL") << std::endl;
 
   const auto removesPerf = utils::benchmark([&db, &entries] {
     for (const auto& [key, value] : entries) {
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
   }
 
   const auto readsPerfAfterCommit = utils::benchmark([&db, &entries] {
-    std::optional<std::string> result;
+    std::string* result = nullptr;
     for (const auto& [key, value] : entries) {
       result = db.get(key);
     }
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
   const auto timeForASingleReadAfterCommit = readsPerfAfterCommit.second / ENTRIES_COUNT;
   std::cout
     << "timeForASingleReadAfterCommit=" << timeForASingleReadAfterCommit
-    << " result=" << readsPerfAfterCommit.first.value_or("NULL") << std::endl;
+    << " result=" << (readsPerfAfterCommit.first ? readsPerfAfterCommit.first->data() : "NULL") << std::endl;
 
   return 0;
 }

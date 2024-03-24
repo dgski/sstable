@@ -61,11 +61,15 @@ public:
     _uncommitted << key << '\0' << value << std::endl;
     _data[key] = std::string(value);
   }
-  std::optional<std::string> get(std::string_view key) {
+  bool get(std::string& output, std::string_view key) {
     if (auto it = _data.find(key); it != _data.end()) {
-      return (it->second == "\0") ? std::nullopt : std::optional(it->second);
+      if (it->second == "\0") {
+        return false;
+      }
+      output = it->second;
+      return true;
     }
-    return std::nullopt;
+    return false;
   }
   void remove(std::string_view key) {
     auto it = _data.find(key);

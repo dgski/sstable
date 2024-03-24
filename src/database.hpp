@@ -71,24 +71,25 @@ public:
       prepareCommit();
     }
   }
-  std::optional<std::string> get(std::string_view key) {
-    if (auto result = _uncommitted.get(key); result) {
-      return result;
+  std::string* get(std::string_view key) {
+    thread_local std::string output;
+    if (auto result = _uncommitted.get(output, key); result) {
+      return &output;
     }
     {
       auto committingHandle = _committing.access();
-      if (auto result = committingHandle->get(key); result) {
-        return result;
+      if (auto result = committingHandle->get(output, key); result) {
+        return &output;
       }
     }
 
     for (auto& [_, committed] : *_committed.access()) {
-      if (auto result = committed.get(key); result) {
-        return result;
+      if (auto result = committed.get(output, key); result) {
+        return &output;
       }
     }
 
-    return std::nullopt;
+    return nullptr;
   }
 
   void prepareCommit() {

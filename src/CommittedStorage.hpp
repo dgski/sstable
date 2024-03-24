@@ -42,7 +42,7 @@ public:
       });
   }
 
-  std::optional<std::string> get(std::string_view key) {
+  bool get(std::string& output, std::string_view key) {
     const auto keySlice = key.substr(0, INDEX_KEY_SIZE - 1);
     auto it = std::lower_bound(
       _index.begin(), _index.end(), keySlice,
@@ -50,7 +50,7 @@ public:
       return std::string_view(index.key) < key;
     });
     if (it == _index.end() || std::string_view(it->key) != keySlice) {
-      return std::nullopt;
+      return false;
     }
 
     std::optional<std::string_view> result;
@@ -65,9 +65,12 @@ public:
         return true;
       });
 
-    return (!result || *result == "\0") ?
-      std::nullopt :
-      std::optional(std::string(result->begin(), result->end()));
+    if (!result || *result == "\0") {
+      return false;
+    }
+
+    output = result.value();
+    return true;
   }
 
   template<typename ContainerType>
