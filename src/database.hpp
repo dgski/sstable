@@ -52,11 +52,11 @@ public:
     }
   }
   ~Database() {
+    _running.store(false, std::memory_order_relaxed);
+    _backgroundThread.join();
     commit();
     prepareCommit();
     commit();
-    _running.store(false, std::memory_order_relaxed);
-    _backgroundThread.join();
   }
 
   void set(std::string_view key, std::string_view value) {
