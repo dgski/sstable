@@ -31,10 +31,6 @@ class CommittedStorage {
     std::string_view _contents;
   public:
     RecordIteration(std::string_view contents) : _contents(contents) {}
-    struct Record {
-      std::string_view key;
-      std::string_view value;
-    };
     std::optional<Record> next() {
       if (_contents.empty()) {
         return std::nullopt;
