@@ -100,7 +100,7 @@ public:
   void add(ContainerType& incoming) {
     _index.clear();
     std::ofstream tmp(_path + ".tmp", std::ios::out | std::ios::binary);
-    const auto writeToTmp = [&](std::string_view key, std::string_view value) {
+    const auto write = [&](std::string_view key, std::string_view value) {
       addToIndex(key, tmp.tellp());
       writeRecordToFile(tmp, {key, value});
     };
@@ -108,10 +108,10 @@ public:
     RecordIteration it(std::string_view(_file.begin(), _file.end()));
     while (auto record = it.next()) {
       if (auto it = incoming.find(record->key); it != incoming.end()) {
-        writeToTmp(it->first, it->second);
+        write(it->first, it->second);
         incoming.erase(it);
       } else {
-        writeToTmp(record->key, record->value);
+        write(record->key, record->value);
       }
     }
 
@@ -120,7 +120,7 @@ public:
     remaining.assign(incoming.begin(), incoming.end());
     std::sort(remaining.begin(), remaining.end());
     for (const auto& [key, value] : remaining) {
-      writeToTmp(key, value);
+      write(key, value);
     }
 
     std::filesystem::rename(_path + ".tmp", _path);
