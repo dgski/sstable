@@ -27,7 +27,7 @@ class Database {
   std::atomic<bool> _running = true;
   size_t _nextCommitId = 0;
   std::set<size_t> _knownSegments;
-  std::thread _backgroundThread;
+  std::unique_ptr<std::thread> _backgroundThread;
 
   void background() {
     while (_running.load(std::memory_order_relaxed)) {
@@ -39,8 +39,7 @@ public:
   Database(std::string_view path)
     : _path(path),
     _uncommitted(std::string(path) + "/uncommitted.log"),
-    _committing(std::string(path) + "/committing.log"),
-    _backgroundThread(&Database::background, this)
+    _committing(std::string(path) + "/committing.log")
   {
     for (const auto& entry : std::filesystem::directory_iterator(path)) {
       if (entry.path().extension() == ".data") {
@@ -50,10 +49,11 @@ public:
         _knownSegments.insert(segmentId);
       }
     }
+    _backgroundThread = std::make_unique<std::thread>(&Database::background, this);
   }
   ~Database() {
     _running.store(false, std::memory_order_relaxed);
-    _backgroundThread.join();
+    _backgroundThread->join();
     commit();
     prepareCommit();
     commit();
