@@ -99,9 +99,4 @@ namespace utils {
     auto data() { return _data.data(); }
     auto data() const { return _data.data(); }
   };
-
-  std::pair<std::string_view, std::string_view> split(std::string_view line) {
-    const auto separator = line.find('\0');
-    return {line.substr(0, separator), line.substr(separator + 1)};
-  }
 } // namespace utils
