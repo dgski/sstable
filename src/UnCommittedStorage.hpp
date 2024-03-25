@@ -54,12 +54,14 @@ public:
     _uncommitted.open(path.data(), std::ios::app | std::ios::binary);
   }
   void set(std::string_view key, std::string_view value) {
-    auto it = _data.find(key);
-    if (it != _data.end() && it->second == value) {
-      return;
+    auto [it, inserted] = _data.try_emplace(key, value);
+    if (!inserted) {
+      if (it->second == value) {
+        return;
+      }
+      it->second = value;
     }
     _uncommitted << key << '\0' << value << std::endl;
-    _data[key] = std::string(value);
   }
   bool get(std::string& output, std::string_view key) {
     if (auto it = _data.find(key); it != _data.end()) {
@@ -72,12 +74,7 @@ public:
     return false;
   }
   void remove(std::string_view key) {
-    auto it = _data.find(key);
-    if (it != _data.end() && it->second == "\0") {
-      return;
-    }
-    _uncommitted << key << std::endl;
-    _data[key] = "\0";
+    set(key, "\0");
   }
   void clear() {
     _uncommitted.close();
@@ -85,13 +82,7 @@ public:
     _uncommitted.open(_path, std::ios::app | std::ios::binary);
     _data.clear();
   }
-  auto size() const {
-    return _data.size();
-  }
-  bool empty() const {
-    return _data.empty();
-  }
-  auto& data() {
-    return _data;
-  }
+  auto size() const { return _data.size(); }
+  bool empty() const { return _data.empty(); }
+  auto& data() { return _data; }
 };
