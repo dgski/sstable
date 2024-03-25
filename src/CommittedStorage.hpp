@@ -19,7 +19,13 @@ class CommittedStorage {
 
   struct Record { std::string_view key; std::string_view value; };
   static void writeRecordToFile(std::ofstream& file, const Record& record) {
-    file << record.key << '\0' << record.value << std::endl;
+    const size_t keySize = record.key.size();
+    file.write(reinterpret_cast<const char*>(&keySize), sizeof(size_t));
+    file.write(record.key.data(), record.key.size());
+
+    const size_t valueSize = record.value.size();
+    file.write(reinterpret_cast<const char*>(&valueSize), sizeof(size_t));
+    file.write(record.value.data(), record.value.size());
   }
   class RecordIteration {
     std::string_view _contents;
@@ -33,10 +39,15 @@ class CommittedStorage {
       if (_contents.empty()) {
         return std::nullopt;
       }
-      const auto lineEnd = std::find(_contents.begin(), _contents.end(), '\n');
-      const auto [key, value] = utils::split(std::string_view(_contents.begin(), lineEnd));
-      _contents = std::string_view(lineEnd + 1, _contents.end());
-      return Record{key, value};
+      Record result;
+      size_t keySize, valueSize;
+      std::memcpy(&keySize, _contents.data(), sizeof(size_t));
+      result.key = std::string_view(_contents.data() + sizeof(size_t), keySize);
+      _contents.remove_prefix(sizeof(size_t) + keySize);
+      std::memcpy(&valueSize, _contents.data(), sizeof(size_t));
+      result.value = std::string_view(_contents.data() + sizeof(size_t), valueSize);
+      _contents.remove_prefix(sizeof(size_t) + valueSize);
+      return result;
     }
   };
 

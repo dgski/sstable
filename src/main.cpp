@@ -63,6 +63,5 @@ int main(int argc, char* argv[]) {
   std::cout
     << "timeForASingleReadAfterCommit=" << timeForASingleReadAfterCommit
     << " result=" << (readsPerfAfterCommit.first ? readsPerfAfterCommit.first->data() : "NULL") << std::endl;
-
   return 0;
 }
