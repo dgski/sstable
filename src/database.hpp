@@ -161,4 +161,11 @@ public:
       committedHandle->emplace(committed.segmentId, std::move(committed.storage));
     }
   }
+
+  void blockUntilAllCommitsAreDone() {
+    while (!_uncommitted.empty() || !_committing.access()->empty()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      prepareCommit();
+    }
+  }
 };

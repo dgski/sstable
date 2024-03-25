@@ -50,6 +50,8 @@ int main(int argc, char* argv[]) {
     db.set(key, value);
   }
 
+  db.blockUntilAllCommitsAreDone();
+
   const auto readsPerfAfterCommit = utils::benchmark([&db, &entries] {
     std::string* result = nullptr;
     for (const auto& [key, value] : entries) {
