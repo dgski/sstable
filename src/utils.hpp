@@ -104,42 +104,4 @@ namespace utils {
     const auto separator = line.find('\0');
     return {line.substr(0, separator), line.substr(separator + 1)};
   }
-
-  // Iterate each key-value pair in the buffer
-  // stop iteration by returning false from the callback
-  template<typename Func>
-  void forEachKeyValue(
-    std::string_view contents,
-    Func&& func)
-  {
-    auto it = contents.begin();
-    while (it != contents.end()) {
-      const auto lineEnd = std::find(it, contents.end(), '\n');
-      const auto [key, value] = split(std::string_view(it, lineEnd));
-      if (!func(key, value)) {
-        return;
-      }
-      it = lineEnd + 1;
-    }
-  }
-
-  class KeyValueIteration {
-    std::string_view _contents;
-  public:
-    KeyValueIteration(std::string_view contents) : _contents(contents) {}
-    struct KeyValue {
-      std::string_view key;
-      std::string_view value;
-    };
-    std::optional<KeyValue> next() {
-      if (_contents.empty()) {
-        return std::nullopt;
-      }
-      const auto lineEnd = std::find(_contents.begin(), _contents.end(), '\n');
-      const auto [key, value] = split(std::string_view(_contents.begin(), lineEnd));
-      _contents = std::string_view(lineEnd + 1, _contents.end());
-      return KeyValue{key, value};
-    }
-  };
-
 } // namespace utils

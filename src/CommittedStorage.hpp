@@ -17,6 +17,29 @@ class CommittedStorage {
   struct IndexEntry { char key[INDEX_KEY_SIZE]; size_t pos; };
   std::vector<IndexEntry> _index;
 
+  struct Record { std::string_view key; std::string_view value; };
+  static void writeRecordToFile(std::ofstream& file, const Record& record) {
+    file << record.key << '\0' << record.value << std::endl;
+  }
+  class RecordIteration {
+    std::string_view _contents;
+  public:
+    RecordIteration(std::string_view contents) : _contents(contents) {}
+    struct Record {
+      std::string_view key;
+      std::string_view value;
+    };
+    std::optional<Record> next() {
+      if (_contents.empty()) {
+        return std::nullopt;
+      }
+      const auto lineEnd = std::find(_contents.begin(), _contents.end(), '\n');
+      const auto [key, value] = utils::split(std::string_view(_contents.begin(), lineEnd));
+      _contents = std::string_view(lineEnd + 1, _contents.end());
+      return Record{key, value};
+    }
+  };
+
   void addToIndex(std::string_view key, size_t pos) {
     auto& currentKeyIndex = _index.emplace_back();
     std::memcpy(currentKeyIndex.key, key.data(), INDEX_KEY_SIZE - 1);
@@ -32,14 +55,11 @@ class CommittedStorage {
 public:
   CommittedStorage(std::string_view path) : _path(path) {
     remapFileArray();
-    utils::forEachKeyValue(
-      std::string_view(_file.begin(), _file.end()),
-      [&](std::string_view key, std::string_view)
-      {
-        const auto pos = key.data() - _file.data();
-        addToIndex(key, pos);
-        return true;
-      });
+    RecordIteration it(std::string_view(_file.begin(), _file.end()));
+    while (auto record = it.next()) {
+      const auto pos = record->key.data() - _file.data();
+      addToIndex(record->key, pos);
+    }
   }
 
   bool get(std::string& output, std::string_view key) {
@@ -54,17 +74,13 @@ public:
     }
 
     std::optional<std::string_view> result;
-    utils::forEachKeyValue(
-      std::string_view(_file.begin() + it->pos, _file.end()),
-      [&](std::string_view k, std::string_view v)
-      {
-        if (k == key) {
-          result = v;
-          return false;
-        }
-        return true;
-      });
-
+    RecordIteration records(std::string_view(_file.begin() + it->pos, _file.end()));
+    while (auto record = records.next()) {
+      if (record->key == key) {
+        result = record->value;
+        break;
+      }
+    }
     if (!result || *result == "\0") {
       return false;
     }
@@ -79,21 +95,18 @@ public:
     std::ofstream tmp(_path + ".tmp", std::ios::out | std::ios::binary);
     const auto writeToTmp = [&](std::string_view key, std::string_view value) {
       addToIndex(key, tmp.tellp());
-      tmp << key << '\0' << value << std::endl;
+      writeRecordToFile(tmp, {key, value});
     };
 
-    utils::forEachKeyValue(
-      std::string_view(_file.begin(), _file.end()),
-      [&](std::string_view key, std::string_view value)
-    {
-      if (auto it = incoming.find(key); it != incoming.end()) {
+    RecordIteration it(std::string_view(_file.begin(), _file.end()));
+    while (auto record = it.next()) {
+      if (auto it = incoming.find(record->key); it != incoming.end()) {
         writeToTmp(it->first, it->second);
         incoming.erase(it);
       } else {
-        writeToTmp(key, value);
+        writeToTmp(record->key, record->value);
       }
-      return true;
-    });
+    }
 
     thread_local std::vector<std::pair<std::string_view, std::string_view>> remaining;
     remaining.reserve(incoming.size());
@@ -112,12 +125,12 @@ public:
   {
     utils::ReadOnlyFileMappedArray<char> newerFile(newer);
     utils::ReadOnlyFileMappedArray<char> olderFile(older);
-    utils::KeyValueIteration newerIt(std::string_view(newerFile.begin(), newerFile.end()));
-    utils::KeyValueIteration olderIt(std::string_view(olderFile.begin(), olderFile.end()));
+    RecordIteration newerIt(std::string_view(newerFile.begin(), newerFile.end()));
+    RecordIteration olderIt(std::string_view(olderFile.begin(), olderFile.end()));
 
     std::ofstream ouput(path.data(), std::ios::out | std::ios::binary);
     const auto write = [&](std::string_view key, std::string_view value) {
-      ouput << key << '\0' << value << std::endl;
+      writeRecordToFile(ouput, {key, value});
     };
 
     auto newValue = newerIt.next();
