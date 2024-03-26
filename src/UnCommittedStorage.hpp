@@ -7,6 +7,8 @@
 #include <fstream>
 #include <boost/unordered/unordered_flat_map.hpp>
 
+#include "Utils.hpp"
+
 struct Hash {
   using is_transparent = void;
   size_t operator()(const std::string& key) const {
@@ -40,18 +42,19 @@ class UncommittedStorage {
   HashTable _data;
   std::ofstream _uncommitted;
 public:
-  UncommittedStorage(std::string_view path) : _path(path) {
-    std::ifstream scanUncommitted(_path, std::ios::binary);
-    std::string line;
-    while (std::getline(scanUncommitted, line)) {
-      const auto isSet = line.find('\0');
-      if (isSet != std::string::npos) {
-        _data[line.substr(0, isSet)] = line.substr(isSet + 1);
-      } else {
-        _data[line] = "\0";
-      }
+  UncommittedStorage(std::string_view path)
+  : _path(path),
+    _uncommitted(path.data(), std::ios::app | std::ios::binary)
+  {
+    if (!std::filesystem::exists(path) || std::filesystem::file_size(path) == 0) {
+      return;
     }
-    _uncommitted.open(path.data(), std::ios::app | std::ios::binary);
+
+    utils::ReadOnlyFileMappedArray<char> file(path);
+    utils::RecordIteration it(std::string_view(file.begin(), file.end()));
+    while (auto record = it.next()) {
+      _data[std::string(record->key)] = std::string(record->value);
+    }
   }
   void set(std::string_view key, std::string_view value) {
     auto [it, inserted] = _data.try_emplace(key, value);
@@ -61,7 +64,7 @@ public:
       }
       it->second = value;
     }
-    _uncommitted << key << '\0' << value << std::endl;
+    utils::writeRecordToFile(_uncommitted, {key, value});
   }
   bool get(std::string& output, std::string_view key) {
     if (auto it = _data.find(key); it != _data.end()) {
