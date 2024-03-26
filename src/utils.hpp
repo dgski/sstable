@@ -11,6 +11,8 @@
 #include <string_view>
 #include <vector>
 #include <fstream>
+#include <filesystem>
+#include <bitset>
 
 #include <boost/interprocess/managed_mapped_file.hpp>
 #include <boost/interprocess/file_mapping.hpp>
@@ -171,5 +173,34 @@ using StringKeyHashTable = boost::unordered_flat_map<
   std::string, Value,
   StringHash,
   StringEquals>;
+
+class BloomFilter {
+  static constexpr size_t BUCKET_COUNT = std::numeric_limits<uint16_t>::max();
+  std::bitset<BUCKET_COUNT> _buckets;
+  static constexpr auto getSegmentHash(size_t fullHash, size_t index) {
+    return uint16_t((fullHash >> (index * 16) & 0xFFFF));
+  }
+public:
+  BloomFilter() = default;
+  void add(std::string_view key) {
+    const size_t fullHash = std::hash<std::string_view>{}(key);
+    _buckets[getSegmentHash(fullHash, 0)] = true;
+    _buckets[getSegmentHash(fullHash, 1)] = true;
+    _buckets[getSegmentHash(fullHash, 2)] = true;
+    _buckets[getSegmentHash(fullHash, 3)] = true;
+  }
+  bool contains(std::string_view key) const {
+    const size_t fullHash = std::hash<std::string_view>{}(key);
+    auto hashSegments = (const uint16_t*)(&fullHash);
+    return
+      _buckets[hashSegments[0]] &
+      _buckets[hashSegments[1]] &
+      _buckets[hashSegments[2]] &
+      _buckets[hashSegments[3]];
+  }
+  void clear() {
+    _buckets.reset();
+  }
+};
 
 } // namespace utils

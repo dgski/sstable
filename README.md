@@ -1,8 +1,6 @@
 # Simple SSTable Storage Implementation
 
 ## TODO
-- Add simple repl / runtime
-- BloomFilters
 - Un-map 'old segments'
 
 ## TODO AMBITIOUS

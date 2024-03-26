@@ -17,7 +17,10 @@ class CommittedStorage {
   struct IndexEntry { char key[INDEX_KEY_SIZE]; size_t pos; };
   std::vector<IndexEntry> _index;
 
+  utils::BloomFilter _bloomFilter;
+
   void addToIndex(std::string_view key, size_t pos) {
+    _bloomFilter.add(key);
     auto& currentKeyIndex = _index.emplace_back();
     std::memcpy(currentKeyIndex.key, key.data(), INDEX_KEY_SIZE - 1);
     currentKeyIndex.key[INDEX_KEY_SIZE - 1] = '\0';
@@ -40,6 +43,10 @@ public:
   }
 
   bool get(std::string& output, std::string_view key) {
+    if (!_bloomFilter.contains(key)) {
+      return false;
+    }
+
     const auto keySlice = key.substr(0, INDEX_KEY_SIZE - 1);
     auto it = std::lower_bound(
       _index.begin(), _index.end(), keySlice,
@@ -69,6 +76,7 @@ public:
   template<typename ContainerType>
   void add(ContainerType& incoming) {
     _index.clear();
+    _bloomFilter.clear();
     std::ofstream tmp(_path + ".tmp", std::ios::out | std::ios::binary);
     const auto write = [&](std::string_view key, std::string_view value) {
       addToIndex(key, tmp.tellp());
