@@ -78,31 +78,25 @@ public:
     if (auto result = _uncommitted.get(output, key); result) {
       return &output;
     }
-    {
-      if (auto result = _committing.access()->get(output, key); result) {
-        return &output;
-      }
+    if (auto result = _committing.access()->get(output, key); result) {
+      return &output;
     }
-
     for (auto& [_, committed] : *_committed.access()) {
       if (auto result = committed.get(output, key); result) {
         return &output;
       }
     }
-
     return nullptr;
   }
 
   void prepareCommit() {
-    {
-      auto committingHandle = _committing.access();
-      if (!committingHandle->empty()) {
-        return;
-      }
-      std::filesystem::rename(_path + "/uncommitted.log", _path + "/committing.log");
-      committingHandle->data().swap(_uncommitted.data());
-      _uncommitted.clear();
+    auto committingHandle = _committing.access();
+    if (!committingHandle->empty()) {
+      return;
     }
+    std::filesystem::rename(_path + "/uncommitted.log", _path + "/committing.log");
+    committingHandle->data().swap(_uncommitted.data());
+    _uncommitted.clear();
   }
 
   void commit() {
