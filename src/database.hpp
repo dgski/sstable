@@ -7,9 +7,11 @@
 #include <optional>
 #include <fstream>
 #include <filesystem>
-#include <set>
 #include <format>
 #include <ranges>
+#include <thread>
+#include <atomic>
+#include <unordered_set>
 
 #include "UnCommittedStorage.hpp"
 #include "CommittedStorage.hpp"
@@ -26,7 +28,7 @@ class Database {
   // Accessed by background thread only after init
   std::atomic<bool> _running = true;
   size_t _nextCommitId = 0;
-  std::set<size_t> _knownSegments;
+  std::unordered_set<size_t> _knownSegments;
   std::unique_ptr<std::thread> _backgroundThread;
 
   void background() {
