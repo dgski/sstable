@@ -32,7 +32,7 @@ class Database {
   void background() {
     while (_running.load(std::memory_order_relaxed)) {
       commit();
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
   }
 public:
@@ -120,13 +120,12 @@ public:
   }
 
   void merge() {
-    constexpr auto MAX_SEGMENT_SIZE = 1024 * 1024 * 100; // MB;
-    std::vector<size_t> removed;
-    struct IdAndStorage {
-      size_t segmentId;
-      CommittedStorage storage;
-    };
-    std::vector<IdAndStorage> added;
+    constexpr auto MAX_SEGMENT_SIZE = 1024 * 1024 * 50; // MB;
+    thread_local std::vector<size_t> removed;
+    removed.clear();
+    struct IdAndStorage { size_t segmentId; CommittedStorage storage; };
+    thread_local std::vector<IdAndStorage> added;
+    added.clear();
     auto first = _knownSegments.begin();
     while ((first != _knownSegments.end()) && (std::next(first) != _knownSegments.end())) {
       auto second = std::next(first);
@@ -143,7 +142,9 @@ public:
         std::format("{}/{}.data", _path, newSegmentId),
         std::format("{}/{}.data", _path, *first),
         std::format("{}/{}.data", _path, *second));
-      added.push_back(IdAndStorage{newSegmentId, CommittedStorage(std::format("{}/{}.data", _path, newSegmentId))});
+      added.push_back(IdAndStorage{
+        newSegmentId,
+        CommittedStorage(std::format("{}/{}.data", _path, newSegmentId))});
       removed.push_back(*first);
       removed.push_back(*second);
       first = std::next(second);
