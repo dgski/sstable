@@ -5,41 +5,12 @@
 #include <unordered_map>
 #include <optional>
 #include <fstream>
-#include <boost/unordered/unordered_flat_map.hpp>
 
 #include "Utils.hpp"
 
-struct Hash {
-  using is_transparent = void;
-  size_t operator()(const std::string& key) const {
-    return std::hash<std::string>()(key);
-  }
-  size_t operator()(const std::string_view& key) const {
-    return std::hash<std::string_view>()(key);
-  }
-};
-
-struct Eq {
-  using is_transparent = void;
-  bool operator()(const std::string& lhs, const std::string& rhs) const {
-    return lhs == rhs;
-  }
-  bool operator()(const std::string_view& lhs, const std::string_view& rhs) const {
-    return lhs == rhs;
-  }
-  bool operator()(const std::string& lhs, const std::string_view& rhs) const {
-    return lhs == rhs;
-  }
-  bool operator()(const std::string_view& lhs, const std::string& rhs) const {
-    return lhs == rhs;
-  }
-};
-
-using HashTable = boost::unordered_flat_map<std::string, std::string, Hash, Eq>;
-
 class UncommittedStorage {
   const std::string _path;
-  HashTable _data;
+  utils::StringKeyHashTable<std::string> _data;
   std::ofstream _uncommitted;
 public:
   UncommittedStorage(std::string_view path)

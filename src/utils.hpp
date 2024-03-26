@@ -15,7 +15,7 @@
 #include <boost/interprocess/managed_mapped_file.hpp>
 #include <boost/interprocess/file_mapping.hpp>
 #include <boost/interprocess/mapped_region.hpp>
-
+#include <boost/unordered/unordered_flat_map.hpp>
 
 namespace utils {
 
@@ -139,5 +139,37 @@ public:
     return result;
   }
 };
+
+struct StringHash {
+  using is_transparent = void;
+  size_t operator()(const std::string& key) const {
+    return std::hash<std::string>()(key);
+  }
+  size_t operator()(const std::string_view& key) const {
+    return std::hash<std::string_view>()(key);
+  }
+};
+
+struct StringEquals {
+  using is_transparent = void;
+  bool operator()(const std::string& lhs, const std::string& rhs) const {
+    return lhs == rhs;
+  }
+  bool operator()(const std::string_view& lhs, const std::string_view& rhs) const {
+    return lhs == rhs;
+  }
+  bool operator()(const std::string& lhs, const std::string_view& rhs) const {
+    return lhs == rhs;
+  }
+  bool operator()(const std::string_view& lhs, const std::string& rhs) const {
+    return lhs == rhs;
+  }
+};
+
+template<typename Value>
+using StringKeyHashTable = boost::unordered_flat_map<
+  std::string, Value,
+  StringHash,
+  StringEquals>;
 
 } // namespace utils
