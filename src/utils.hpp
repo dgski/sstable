@@ -7,6 +7,10 @@
 #include <mutex>
 #include <optional>
 #include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+#include <fstream>
 
 #include <boost/interprocess/managed_mapped_file.hpp>
 #include <boost/interprocess/file_mapping.hpp>
@@ -98,5 +102,40 @@ namespace utils {
     auto& operator[](size_t index) const { return _data[index]; }
     auto data() { return _data.data(); }
     auto data() const { return _data.data(); }
+  };
+
+  struct Record {
+    std::string_view key;
+    std::string_view value;
+  };
+
+  static void writeRecordToFile(std::ofstream& file, const Record& record) {
+    const size_t keySize = record.key.size();
+    file.write(reinterpret_cast<const char*>(&keySize), sizeof(size_t));
+    file.write(record.key.data(), record.key.size());
+
+    const size_t valueSize = record.value.size();
+    file.write(reinterpret_cast<const char*>(&valueSize), sizeof(size_t));
+    file.write(record.value.data(), record.value.size());
+  }
+
+  class RecordIteration {
+    std::string_view _contents;
+  public:
+    RecordIteration(std::string_view contents) : _contents(contents) {}
+    std::optional<Record> next() {
+      if (_contents.empty()) {
+        return std::nullopt;
+      }
+      Record result;
+      size_t keySize, valueSize;
+      std::memcpy(&keySize, _contents.data(), sizeof(size_t));
+      result.key = std::string_view(_contents.data() + sizeof(size_t), keySize);
+      _contents.remove_prefix(sizeof(size_t) + keySize);
+      std::memcpy(&valueSize, _contents.data(), sizeof(size_t));
+      result.value = std::string_view(_contents.data() + sizeof(size_t), valueSize);
+      _contents.remove_prefix(sizeof(size_t) + valueSize);
+      return result;
+    }
   };
 } // namespace utils
