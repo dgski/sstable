@@ -75,14 +75,14 @@ public:
   }
   std::string* get(std::string_view key) {
     thread_local std::string output;
-    if (auto result = _uncommitted.get(output, key); result) {
+    if (auto found = _uncommitted.get(output, key); found) {
       return &output;
     }
-    if (auto result = _committing.access()->get(output, key); result) {
+    if (auto found = _committing.access()->get(output, key); found) {
       return &output;
     }
     for (auto& [_, committed] : *_committed.access()) {
-      if (auto result = committed.get(output, key); result) {
+      if (auto found = committed.get(output, key); found) {
         return &output;
       }
     }
