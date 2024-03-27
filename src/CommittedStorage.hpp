@@ -105,44 +105,43 @@ public:
     remapFileArray();
   }
 
-  static void merge(std::string_view path, std::string_view newer, std::string_view older)
+  static void merge(
+    std::string_view path,
+    std::string_view newerPath,
+    std::string_view olderPath)
   {
-    utils::ReadOnlyFileMappedArray<char> newerFile(newer);
-    utils::ReadOnlyFileMappedArray<char> olderFile(older);
+    std::ofstream ouput(path.data(), std::ios::out | std::ios::binary);
+    utils::ReadOnlyFileMappedArray<char> newerFile(newerPath);
+    utils::ReadOnlyFileMappedArray<char> olderFile(olderPath);
     utils::RecordIteration newerIt(std::string_view(newerFile.begin(), newerFile.end()));
     utils::RecordIteration olderIt(std::string_view(olderFile.begin(), olderFile.end()));
 
-    std::ofstream ouput(path.data(), std::ios::out | std::ios::binary);
-    const auto write = [&](std::string_view key, std::string_view value) {
-      utils::writeRecordToFile(ouput, {key, value});
-    };
-
-    auto newValue = newerIt.next();
-    auto oldValue = olderIt.next();
+    auto newer = newerIt.next();
+    auto older = olderIt.next();
     while (true) {
-      if (!newValue && !oldValue) {
+      if (!newer && !older) {
         break;
       }
-      if (!newValue) {
-        write(oldValue->key, oldValue->value);
-        oldValue = olderIt.next();
+      if (!newer) {
+        utils::writeRecordToFile(ouput, {older->key, older->value});
+        older = olderIt.next();
         continue;
       }
-      if (!oldValue) {
-        write(newValue->key, newValue->value);
-        newValue = newerIt.next();
+      if (!older) {
+        utils::writeRecordToFile(ouput, {newer->key, newer->value});
+        newer = newerIt.next();
         continue;
       }
-      if (newValue->key < oldValue->key) {
-        write(newValue->key, newValue->value);
-        newValue = newerIt.next();
-      } else if (newValue->key > oldValue->key) {
-        write(oldValue->key, oldValue->value);
-        oldValue = olderIt.next();
+      if (newer->key < older->key) {
+        utils::writeRecordToFile(ouput, {newer->key, newer->value});
+        newer = newerIt.next();
+      } else if (newer->key > older->key) {
+        utils::writeRecordToFile(ouput, {older->key, older->value});
+        older = olderIt.next();
       } else {
-        write(newValue->key, newValue->value);
-        newValue = newerIt.next();
-        oldValue = olderIt.next();
+        utils::writeRecordToFile(ouput, {newer->key, newer->value});
+        newer = newerIt.next();
+        older = olderIt.next();
       }
     }
 
