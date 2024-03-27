@@ -105,8 +105,7 @@ public:
     remapFileArray();
   }
 
-  static void merge(
-    std::string_view path, std::string_view newer, std::string_view older)
+  static void merge(std::string_view path, std::string_view newer, std::string_view older)
   {
     utils::ReadOnlyFileMappedArray<char> newerFile(newer);
     utils::ReadOnlyFileMappedArray<char> olderFile(older);

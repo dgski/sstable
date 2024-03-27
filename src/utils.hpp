@@ -78,6 +78,9 @@ public:
   auto access() {
     return ProtectedResourceHandle(_resource, _mutex);
   }
+  const auto& unprotectedAccess() const {
+    return _resource;
+  }
 };
 
 template<typename T>

@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
       result = db.get(key);
     }
     return result;
-  }, 1);
+  }, 10);
   const auto timeForASingleReadAfterCommit = readsPerfAfterCommit.second / ENTRIES_COUNT;
   std::cout
     << "timeForASingleReadAfterCommit=" << timeForASingleReadAfterCommit
