@@ -35,7 +35,7 @@ public:
       }
       it->second = value;
     }
-    utils::writeRecordToFile(_uncommitted, {key, value});
+    utils::writeRecordToFile<true /*flush*/>(_uncommitted, {key, value});
   }
   bool get(std::string& output, std::string_view key) {
     if (auto it = _data.find(key); it != _data.end()) {

@@ -10,25 +10,37 @@
 
 #include "Utils.hpp"
 
+class Index {
+  static constexpr size_t KEY_SLICE_SIZE = 8;
+  utils::StringKeyHashTable<size_t> _index;
+public:
+  void add(std::string_view key, size_t pos) {
+    const auto keySlice = (key.size() < KEY_SLICE_SIZE) ?
+      key :
+      key.substr(0, KEY_SLICE_SIZE - 1);
+    _index.emplace(keySlice, pos);
+  }
+  std::optional<size_t> find(std::string_view key) {
+    const auto keySlice = (key.size() < KEY_SLICE_SIZE) ?
+      key :
+      key.substr(0, KEY_SLICE_SIZE - 1);
+    if (auto it = _index.find(keySlice); it != _index.end()) {
+      return it->second;
+    }
+    return std::nullopt;
+  }
+  void clear() { _index.clear(); }
+  bool empty() const { return _index.empty(); }
+};
+
 class CommittedStorage {
   const std::string _path;
   utils::ReadOnlyFileMappedArray<char> _file;
-  static constexpr size_t INDEX_KEY_SIZE = 10;
-  struct IndexEntry { char key[INDEX_KEY_SIZE]; size_t pos; };
-  std::vector<IndexEntry> _index;
-
+  Index _index;
   utils::BloomFilter _bloomFilter;
 
-  void addToIndex(std::string_view key, size_t pos) {
-    _bloomFilter.add(key);
-    auto& currentKeyIndex = _index.emplace_back();
-    std::memcpy(currentKeyIndex.key, key.data(), INDEX_KEY_SIZE - 1);
-    currentKeyIndex.key[INDEX_KEY_SIZE - 1] = '\0';
-    currentKeyIndex.pos = pos;
-  }
-
   void remapFileArray() {
-    if (!_index.empty()) {
+    if (std::filesystem::exists(_path) && std::filesystem::file_size(_path) != 0) {
       _file.remap(_path);
     }
   }
@@ -37,8 +49,8 @@ public:
     remapFileArray();
     utils::RecordIteration it(std::string_view(_file.begin(), _file.end()));
     while (auto record = it.next()) {
-      const auto pos = record->key.data() - _file.data();
-      addToIndex(record->key, pos);
+      _bloomFilter.add(record->key);
+      _index.add(record->key, record->position);
     }
   }
 
@@ -46,31 +58,22 @@ public:
     if (!_bloomFilter.contains(key)) {
       return false;
     }
-
-    const auto keySlice = key.substr(0, INDEX_KEY_SIZE - 1);
-    auto it = std::lower_bound(
-      _index.begin(), _index.end(), keySlice,
-      [](const IndexEntry& index, std::string_view key) {
-      return std::string_view(index.key) < key;
-    });
-    if (it == _index.end() || std::string_view(it->key) != keySlice) {
+    const auto positionInFile = _index.find(key);
+    if (!positionInFile) {
       return false;
     }
 
-    std::optional<std::string_view> result;
-    utils::RecordIteration records(std::string_view(_file.begin() + it->pos, _file.end()));
+    utils::RecordIteration records(std::string_view(_file.begin() + *positionInFile, _file.end()));
     while (auto record = records.next()) {
       if (record->key == key) {
-        result = record->value;
-        break;
+        if (record->value == "\0") {
+          return false;
+        }
+        output = record->value;
+        return true;
       }
     }
-    if (!result || *result == "\0") {
-      return false;
-    }
-
-    output = result.value();
-    return true;
+    return false;
   }
 
   template<typename ContainerType>
@@ -79,8 +82,9 @@ public:
     _bloomFilter.clear();
     std::ofstream tmp(_path + ".tmp", std::ios::out | std::ios::binary);
     const auto write = [&](std::string_view key, std::string_view value) {
-      addToIndex(key, tmp.tellp());
-      utils::writeRecordToFile(tmp, {key, value});
+      _bloomFilter.add(key);
+      _index.add(key, tmp.tellp());
+      utils::writeRecordToFile<false /*flush*/>(tmp, {key, value});
     };
 
     utils::RecordIteration it(std::string_view(_file.begin(), _file.end()));
@@ -101,6 +105,8 @@ public:
       write(key, value);
     }
 
+    tmp.flush();
+    tmp.close();
     std::filesystem::rename(_path + ".tmp", _path);
     remapFileArray();
   }
@@ -123,23 +129,23 @@ public:
         break;
       }
       if (!newer) {
-        utils::writeRecordToFile(ouput, {older->key, older->value});
+        utils::writeRecordToFile<false /*flush*/>(ouput, {older->key, older->value});
         older = olderIt.next();
         continue;
       }
       if (!older) {
-        utils::writeRecordToFile(ouput, {newer->key, newer->value});
+        utils::writeRecordToFile<false /*flush*/>(ouput, {newer->key, newer->value});
         newer = newerIt.next();
         continue;
       }
       if (newer->key < older->key) {
-        utils::writeRecordToFile(ouput, {newer->key, newer->value});
+        utils::writeRecordToFile<false /*flush*/>(ouput, {newer->key, newer->value});
         newer = newerIt.next();
       } else if (newer->key > older->key) {
-        utils::writeRecordToFile(ouput, {older->key, older->value});
+        utils::writeRecordToFile<false /*flush*/>(ouput, {older->key, older->value});
         older = olderIt.next();
       } else {
-        utils::writeRecordToFile(ouput, {newer->key, newer->value});
+        utils::writeRecordToFile<false /*flush*/>(ouput, {newer->key, newer->value});
         newer = newerIt.next();
         older = olderIt.next();
       }

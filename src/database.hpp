@@ -143,11 +143,11 @@ public:
         std::format("{}/{}.data", _path, newSegmentId),
         std::format("{}/{}.data", _path, firstSegmentId),
         std::format("{}/{}.data", _path, secondSegmentId));
-      merged.push_back({
+      merged.emplace_back(
         firstSegmentId,
         secondSegmentId,
         newSegmentId,
-        CommittedStorage(std::format("{}/{}.data", _path, newSegmentId)) });
+        CommittedStorage(std::format("{}/{}.data", _path, newSegmentId)));
       first = std::next(second);
     }
 

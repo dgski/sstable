@@ -115,6 +115,7 @@ struct Record {
   std::string_view value;
 };
 
+template<bool flush>
 static void writeRecordToFile(std::ofstream& file, const Record& record) {
   const size_t keySize = record.key.size();
   file.write(reinterpret_cast<const char*>(&keySize), sizeof(size_t));
@@ -123,17 +124,32 @@ static void writeRecordToFile(std::ofstream& file, const Record& record) {
   const size_t valueSize = record.value.size();
   file.write(reinterpret_cast<const char*>(&valueSize), sizeof(size_t));
   file.write(record.value.data(), record.value.size());
+
+  if constexpr (flush) {
+    file.flush();
+  }
 }
 
 class RecordIteration {
   std::string_view _contents;
+  size_t _originalSize;
 public:
-  RecordIteration(std::string_view contents) : _contents(contents) {}
-  std::optional<Record> next() {
+  RecordIteration(std::string_view contents)
+    : _contents(contents),
+    _originalSize(contents.size())
+  {}
+
+  struct RecordAndPosition {
+    std::string_view key;
+    std::string_view value;
+    size_t position;
+  };
+  std::optional<RecordAndPosition> next() {
     if (_contents.empty()) {
       return std::nullopt;
     }
-    Record result;
+    RecordAndPosition result;
+    result.position = _originalSize - _contents.size();
     size_t keySize, valueSize;
     std::memcpy(&keySize, _contents.data(), sizeof(size_t));
     result.key = std::string_view(_contents.data() + sizeof(size_t), keySize);
