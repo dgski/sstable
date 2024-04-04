@@ -21,8 +21,8 @@ public:
       return;
     }
 
-    utils::ReadOnlyFileMappedArray<char> file(path);
-    utils::RecordIteration it(std::string_view(file.begin(), file.end()));
+    std::ifstream file(path.data(), std::ios::binary);
+    utils::RecordStreamIteration it(file);
     while (auto record = it.next()) {
       _data[std::string(record->key)] = std::string(record->value);
     }
