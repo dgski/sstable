@@ -81,11 +81,11 @@ public:
     std::string_view newerPath,
     std::string_view olderPath)
   {
-    std::ofstream ouput(path.data(), std::ios::out | std::ios::binary);
-    utils::ReadOnlyFileMappedArray<char> newerFile(newerPath);
-    utils::ReadOnlyFileMappedArray<char> olderFile(olderPath);
-    utils::RecordIteration newerIt(std::string_view(newerFile.begin(), newerFile.end()));
-    utils::RecordIteration olderIt(std::string_view(olderFile.begin(), olderFile.end()));
+    std::ifstream newerFile(newerPath.data(), std::ios::binary);
+    std::ifstream olderFile(olderPath.data(), std::ios::binary);
+    std::ofstream ouput(path.data(), std::ios::binary);
+    utils::RecordStreamIteration newerIt(newerFile);
+    utils::RecordStreamIteration olderIt(olderFile);
 
     auto newer = newerIt.next();
     auto older = olderIt.next();
@@ -120,9 +120,9 @@ public:
   }
 
   static void logToSegment(std::string_view segmentPath, std::string_view logPath) {
-    std::ofstream output(segmentPath.data(), std::ios::out | std::ios::binary);
-    utils::ReadOnlyFileMappedArray<char> log(logPath);
-    utils::RecordIteration it(std::string_view(log.begin(), log.end()));
+    std::ifstream input(logPath.data(), std::ios::binary);
+    std::ofstream output(segmentPath.data(), std::ios::binary);
+    utils::RecordStreamIteration it(input);
     while (auto record = it.next()) {
       utils::writeRecordToFile<false /*flush*/>(output, {record->key, record->value});
     }

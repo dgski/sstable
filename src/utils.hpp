@@ -161,6 +161,36 @@ public:
   }
 };
 
+class RecordStreamIteration {
+  std::ifstream& _file;
+  std::string _key;
+  std::string _value;
+public:
+  RecordStreamIteration(std::ifstream& file) : _file(file) {}
+  struct RecordAndPosition {
+    std::string_view key;
+    std::string_view value;
+  };
+  std::optional<RecordAndPosition> next() {
+    size_t keySize, valueSize;
+    if (_file.read(reinterpret_cast<char*>(&keySize), sizeof(size_t)).fail()) {
+      return std::nullopt;
+    }
+    _key.resize(keySize);
+    if (_file.read(_key.data(), keySize).fail()) {
+      return std::nullopt;
+    }
+    if (_file.read(reinterpret_cast<char*>(&valueSize), sizeof(size_t)).fail()) {
+      return std::nullopt;
+    }
+    _value.resize(valueSize);
+    if (_file.read(_value.data(), valueSize).fail()) {
+      return std::nullopt;
+    }
+    return RecordAndPosition{std::string_view(_key), std::string_view(_value)};
+  }
+};
+
 struct StringHash {
   using is_transparent = void;
   size_t operator()(const std::string& key) const {
