@@ -109,10 +109,10 @@ public:
       return;
     }
 
-    UncommittedStorage tmp(_path + "/committing.log");
     const size_t commitSegmentId = _nextCommitId++;
-    CommittedStorage newCommitted(std::format("{}/{}.data", _path, commitSegmentId));
-    newCommitted.add(tmp.data());
+    const auto newSegmentPath = std::format("{}/{}.data", _path, commitSegmentId);
+    CommittedStorage::logToSegment(newSegmentPath, std::format("{}/committing.log", _path));
+    CommittedStorage newCommitted(newSegmentPath);
     _committed.access()->emplace(commitSegmentId, std::move(newCommitted));
     _committing.access()->clear();
   }

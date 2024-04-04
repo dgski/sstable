@@ -76,41 +76,6 @@ public:
     return false;
   }
 
-  template<typename ContainerType>
-  void add(ContainerType& incoming) {
-    _index.clear();
-    _bloomFilter.clear();
-    std::ofstream tmp(_path + ".tmp", std::ios::out | std::ios::binary);
-    const auto write = [&](std::string_view key, std::string_view value) {
-      _bloomFilter.add(key);
-      _index.add(key, tmp.tellp());
-      utils::writeRecordToFile<false /*flush*/>(tmp, {key, value});
-    };
-
-    utils::RecordIteration it(std::string_view(_file.begin(), _file.end()));
-    while (auto record = it.next()) {
-      if (auto it = incoming.find(record->key); it != incoming.end()) {
-        write(it->first, it->second);
-        incoming.erase(it);
-      } else {
-        write(record->key, record->value);
-      }
-    }
-
-    thread_local std::vector<std::pair<std::string_view, std::string_view>> remaining;
-    remaining.reserve(incoming.size());
-    remaining.assign(incoming.begin(), incoming.end());
-    std::sort(remaining.begin(), remaining.end());
-    for (const auto& [key, value] : remaining) {
-      write(key, value);
-    }
-
-    tmp.flush();
-    tmp.close();
-    std::filesystem::rename(_path + ".tmp", _path);
-    remapFileArray();
-  }
-
   static void merge(
     std::string_view path,
     std::string_view newerPath,
@@ -152,5 +117,14 @@ public:
     }
 
     return;
+  }
+
+  static void logToSegment(std::string_view segmentPath, std::string_view logPath) {
+    std::ofstream output(segmentPath.data(), std::ios::out | std::ios::binary);
+    utils::ReadOnlyFileMappedArray<char> log(logPath);
+    utils::RecordIteration it(std::string_view(log.begin(), log.end()));
+    while (auto record = it.next()) {
+      utils::writeRecordToFile<false /*flush*/>(output, {record->key, record->value});
+    }
   }
 };
