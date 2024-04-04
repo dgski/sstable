@@ -120,26 +120,19 @@ public:
   }
 
   static void logToSegment(std::string_view segmentPath, std::string_view logPath) {
-    struct Record {
-      std::string key;
-      std::string value;
-    };
-    thread_local std::vector<Record> records;
+
+    thread_local std::map<std::string, std::string> records;
     records.clear();
 
     std::ifstream input(logPath.data(), std::ios::binary);
     utils::RecordStreamIteration it(input);
     while (auto record = it.next()) {
-      records.push_back({std::string(record->key), std::string(record->value)});
+      records[std::string(record->key)] = std::string(record->value);
     }
 
-    std::sort(records.begin(), records.end(), [](const auto& a, const auto& b) {
-      return a.key < b.key;
-    });
-
     std::ofstream output(segmentPath.data(), std::ios::binary);
-    for (const auto& record : records) {
-      utils::writeRecordToFile<false /*flush*/>(output, {record.key, record.value});
+    for (const auto& [key, value] : records) {
+      utils::writeRecordToFile<false /*flush*/>(output, {key, value});
     }
   }
 };
