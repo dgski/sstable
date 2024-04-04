@@ -170,8 +170,10 @@ public:
   struct RecordAndPosition {
     std::string_view key;
     std::string_view value;
+    size_t position;
   };
   std::optional<RecordAndPosition> next() {
+    const size_t position = _file.tellg();
     size_t keySize, valueSize;
     if (_file.read(reinterpret_cast<char*>(&keySize), sizeof(size_t)).fail()) {
       return std::nullopt;
@@ -187,7 +189,7 @@ public:
     if (_file.read(_value.data(), valueSize).fail()) {
       return std::nullopt;
     }
-    return RecordAndPosition{std::string_view(_key), std::string_view(_value)};
+    return RecordAndPosition{std::string_view(_key), std::string_view(_value), position};
   }
 };
 

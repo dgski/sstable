@@ -24,7 +24,7 @@ public:
     std::ifstream file(path.data(), std::ios::binary);
     utils::RecordStreamIteration it(file);
     while (auto record = it.next()) {
-      _data[std::string(record->key)] = std::string(record->value);
+      _data[record->key] = record->value;
     }
   }
   void set(std::string_view key, std::string_view value) {
