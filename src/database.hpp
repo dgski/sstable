@@ -18,7 +18,7 @@
 #include "Utils.hpp"
 
 class Database {
-  static constexpr auto MAX_UNCOMMITTED_ACTIONS = 10000;
+  static constexpr auto MAX_UNCOMMITTED_ACTIONS = 100000;
   static constexpr auto MAX_SEGMENT_SIZE = 1024 * 1024 * 50; // 10MB
 
   const std::string _path;
