@@ -24,7 +24,7 @@ public:
   void add(std::string_view key, size_t pos) {
     _index.emplace(getKeySlice(key), pos);
   }
-  std::optional<size_t> find(std::string_view key) {
+  std::optional<size_t> find(std::string_view key) const {
     if (auto it = _index.find(getKeySlice(key)); it != _index.end()) {
       return it->second;
     }
@@ -58,7 +58,7 @@ public:
     }
   }
 
-  bool get(std::string& output, std::string_view key) {
+  bool get(std::string& output, std::string_view key) const {
     if (!_bloomFilter.contains(key)) {
       return false;
     }

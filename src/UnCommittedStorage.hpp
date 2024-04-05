@@ -47,7 +47,7 @@ public:
     utils::writeRecordToFile<true /*flush*/>(_writeAheadLog, {key, value});
   }
 
-  bool get(std::string& output, std::string_view key) {
+  bool get(std::string& output, std::string_view key) const {
     if (auto it = _data.find(key); it != _data.end()) {
       if (it->second == utils::TOMBSTONE) {
         return false;
