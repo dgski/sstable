@@ -41,6 +41,12 @@ class Database {
   size_t getSegmentSize(size_t segmentId) {
     return std::filesystem::file_size(std::format("{}/{}.data", _path, segmentId));
   }
+
+  void commitIfNecessary() {
+    if (_uncommitted.size() > MAX_UNCOMMITTED_ACTIONS) {
+      prepareCommit();
+    }
+  }
 public:
   Database(std::string_view path)
     : _path(path),
@@ -66,15 +72,11 @@ public:
 
   void set(std::string_view key, std::string_view value) {
     _uncommitted.set(key, value);
-    if (_uncommitted.size() > MAX_UNCOMMITTED_ACTIONS) {
-      prepareCommit();
-    }
+    commitIfNecessary();
   }
   void remove(std::string_view key) {
     _uncommitted.remove(key);
-    if (_uncommitted.size() > MAX_UNCOMMITTED_ACTIONS) {
-      prepareCommit();
-    }
+    commitIfNecessary();
   }
   std::string* get(std::string_view key) {
     thread_local std::string output;
