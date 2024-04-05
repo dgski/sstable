@@ -10,21 +10,22 @@
 
 #include "Utils.hpp"
 
+// A simple hash index that stores the position of the record in the file
+// The key is sliced to the first 8 characters
 class Index {
   static constexpr size_t KEY_SLICE_SIZE = 8;
   utils::StringKeyHashTable<size_t> _index;
+  static auto getKeySlice(std::string_view key) {
+    return (key.size() < KEY_SLICE_SIZE) ?
+      key :
+      key.substr(0, KEY_SLICE_SIZE - 1);
+  }
 public:
   void add(std::string_view key, size_t pos) {
-    const auto keySlice = (key.size() < KEY_SLICE_SIZE) ?
-      key :
-      key.substr(0, KEY_SLICE_SIZE - 1);
-    _index.emplace(keySlice, pos);
+    _index.emplace(getKeySlice(key), pos);
   }
   std::optional<size_t> find(std::string_view key) {
-    const auto keySlice = (key.size() < KEY_SLICE_SIZE) ?
-      key :
-      key.substr(0, KEY_SLICE_SIZE - 1);
-    if (auto it = _index.find(keySlice); it != _index.end()) {
+    if (auto it = _index.find(getKeySlice(key)); it != _index.end()) {
       return it->second;
     }
     return std::nullopt;
@@ -33,6 +34,9 @@ public:
   bool empty() const { return _index.empty(); }
 };
 
+// Allows access to a single segment of the sorted committed storage via
+// memory-mapped file i/o.
+// On start-up the segment is scanned and the index and bloom filter are populated.
 class CommittedStorage {
   const std::string _path;
   utils::ReadOnlyFileMappedArray<char> _file;
@@ -76,16 +80,21 @@ public:
     return false;
   }
 
+  // Merges two sorted segment files into a new sorted segment file.
   static void merge(
-    std::string_view path,
+    std::string_view outputPath,
     std::string_view newerPath,
     std::string_view olderPath)
   {
     std::ifstream newerFile(newerPath.data(), std::ios::binary);
     std::ifstream olderFile(olderPath.data(), std::ios::binary);
-    std::ofstream ouput(path.data(), std::ios::binary);
     utils::RecordStreamIteration newerIt(newerFile);
     utils::RecordStreamIteration olderIt(olderFile);
+
+    std::ofstream ouput(outputPath.data(), std::ios::binary);
+    auto write = [&ouput](const auto& record) {
+      utils::writeRecordToFile<false /*flush*/>(ouput, {record->key, record->value});
+    };
 
     auto newer = newerIt.next();
     auto older = olderIt.next();
@@ -94,23 +103,23 @@ public:
         break;
       }
       if (!newer) {
-        utils::writeRecordToFile<false /*flush*/>(ouput, {older->key, older->value});
+        write(older);
         older = olderIt.next();
         continue;
       }
       if (!older) {
-        utils::writeRecordToFile<false /*flush*/>(ouput, {newer->key, newer->value});
+        write(newer);
         newer = newerIt.next();
         continue;
       }
       if (newer->key < older->key) {
-        utils::writeRecordToFile<false /*flush*/>(ouput, {newer->key, newer->value});
+        write(newer);
         newer = newerIt.next();
       } else if (newer->key > older->key) {
-        utils::writeRecordToFile<false /*flush*/>(ouput, {older->key, older->value});
+        write(older);
         older = olderIt.next();
       } else {
-        utils::writeRecordToFile<false /*flush*/>(ouput, {newer->key, newer->value});
+        write(newer);
         newer = newerIt.next();
         older = olderIt.next();
       }
@@ -119,8 +128,9 @@ public:
     return;
   }
 
-  static void logToSegment(std::string_view segmentPath, std::string_view logPath) {
-
+  // Converts an unsorted write ahead log file to a sorted segment file.
+  static void logToSegment(std::string_view segmentPath, std::string_view logPath)
+  {
     thread_local std::map<std::string, std::string> records;
     records.clear();
 
