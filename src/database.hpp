@@ -123,7 +123,6 @@ public:
     struct MergedAction {
       size_t firstSegmentId;
       size_t secondSegmentId;
-      size_t segmentId;
       CommittedStorage storage;
     };
     std::vector<MergedAction> merged;
@@ -140,26 +139,28 @@ public:
         continue;
       }
 
-      const auto newSegmentId = _nextCommitId++;
+      const auto newSegmentPath = std::format("{}/{}_{}.data", _path, firstSegmentId, secondSegmentId);
       CommittedStorage::merge(
-        std::format("{}/{}.data", _path, newSegmentId),
+        newSegmentPath,
         std::format("{}/{}.data", _path, firstSegmentId),
         std::format("{}/{}.data", _path, secondSegmentId));
       merged.emplace_back(
         firstSegmentId,
         secondSegmentId,
-        newSegmentId,
-        CommittedStorage(std::format("{}/{}.data", _path, newSegmentId)));
+        CommittedStorage(newSegmentPath));
       first = std::next(second);
     }
 
     auto committed = _committed.access();
     for (auto& action : merged) {
-      committed->erase(action.firstSegmentId);
-      std::filesystem::remove(std::format("{}/{}.data", _path, action.firstSegmentId));
+      // Remove the second segment from the committed storage
       committed->erase(action.secondSegmentId);
       std::filesystem::remove(std::format("{}/{}.data", _path, action.secondSegmentId));
-      committed->emplace(action.segmentId, std::move(action.storage));
+
+      // Replace the first segment with the merged segment
+      std::filesystem::remove(std::format("{}/{}.data", _path, action.firstSegmentId));
+      action.storage.rename(std::format("{}/{}.data", _path, action.firstSegmentId));
+      committed->emplace(action.firstSegmentId, std::move(action.storage));
     }
   }
 

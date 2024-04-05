@@ -38,7 +38,7 @@ public:
 // memory-mapped file i/o.
 // On start-up the segment is scanned and the index and bloom filter are populated.
 class CommittedStorage {
-  const std::string _path;
+  std::string _path;
   utils::ReadOnlyFileMappedArray<char> _file;
   Index _index;
   utils::BloomFilter _bloomFilter;
@@ -78,6 +78,11 @@ public:
       }
     }
     return false;
+  }
+
+  void rename(std::string_view newPath) {
+    std::filesystem::rename(_path, newPath);
+    _path = newPath;
   }
 
   // Merges two sorted segment files into a new sorted segment file.
