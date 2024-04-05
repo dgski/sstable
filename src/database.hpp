@@ -19,7 +19,7 @@
 
 class Database {
   static constexpr auto MAX_UNCOMMITTED_ACTIONS = 100000;
-  static constexpr auto MAX_SEGMENT_SIZE = 1024 * 1024 * 50; // 10MB
+  static constexpr auto MAX_SEGMENT_SIZE = 1024 * 1024 * 50; // 50MB
 
   const std::string _path;
   UncommittedStorage _uncommitted;
