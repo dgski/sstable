@@ -1,14 +1,17 @@
 # Simple SSTable Storage Implementation
 
-## TODO
-- Make index memory-mapped:
-    - On add and merge, write out a {NUM}.index file with an array of (char key(8), size_t pos)
-- Remove use of '\0' as tombstone:
-    - Options:
-        - Reserve use of size_t::max for tombstone
-        - Add a byte to mark deletion (space effective)
+Simple, clear implementation of SSTable-based Key-Value Data Storage Engine in C++. Design information:
 
-## TODO AMBITIOUS
-- Add networking support
-- Add caching support
-- Add multi-node
+- Two threads:
+    - New reads/writes
+    - Committing new segments to disk and merging adjacent segments
+- Stores new writes into an in-memory hash-table as well as a write-ahead log file.
+- After a threshold is met, moves the 'uncommitted' writes into the read-only 'committing' section.
+- When the background thread is ready it will take all the 'committing' writes, sort them by the keys, and write them out into a new file segment with a unique ID.
+- The committed records file segments are memory mapped to fast repeated access.
+- To make reads from committed file segments as fast as possible there are two added data structures:
+    - A Bloom Filter to probabilistically check that the key *may* be within the segment.
+    - An memory-mapped index file compatible with binary search.
+- While commits are happening on the background thread, all records can be read via the 'committing' section.
+- The background thread will periodically 'merge' adjacent segments into one segment. While this is happening all records can be read via the old segments.
+- Commits/Merges are finalized atomically via a mutex which controls access to the committing and the committed storage.
