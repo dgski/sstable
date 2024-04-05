@@ -115,6 +115,8 @@ struct Record {
   std::string_view value;
 };
 
+constexpr const char TOMBSTONE[] = "\0";
+
 template<bool flush>
 static void writeRecordToFile(std::ofstream& file, const Record& record) {
   const size_t keySize = record.key.size();
