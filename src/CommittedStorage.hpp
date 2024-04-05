@@ -70,7 +70,7 @@ public:
     utils::RecordIteration records(std::string_view(_file.begin() + *positionInFile, _file.end()));
     while (auto record = records.next()) {
       if (record->key == key) {
-        if (record->value == "\0") {
+        if (record->value == utils::TOMBSTONE) {
           return false;
         }
         output = record->value;
