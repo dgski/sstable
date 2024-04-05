@@ -13,25 +13,63 @@
 // A simple hash index that stores the position of the record in the file
 // The key is sliced to the first 8 characters
 class Index {
+  std::string _indexPath;
   static constexpr size_t KEY_SLICE_SIZE = 8;
-  utils::StringKeyHashTable<size_t> _index;
+  struct IndexEntry {
+    char key[KEY_SLICE_SIZE];
+    size_t position;
+    bool operator<(std::string_view key) const {
+      return key < view();
+    }
+    void set(std::string_view key, size_t position) {
+      std::strncpy(this->key, key.data(), KEY_SLICE_SIZE - 1);
+      this->position = position;
+    }
+    std::string_view view() const {
+      return std::string_view(key, KEY_SLICE_SIZE - 1);
+    }
+  };
+  utils::ReadOnlyFileMappedArray<IndexEntry> _file;
+
   static auto getKeySlice(std::string_view key) {
     return (key.size() < KEY_SLICE_SIZE) ?
       key :
       key.substr(0, KEY_SLICE_SIZE - 1);
   }
 public:
-  void add(std::string_view key, size_t pos) {
-    _index.emplace(getKeySlice(key), pos);
+  Index(const std::string_view path) : _indexPath(std::format("{}.index", path)) {
+    const bool indexExists = std::filesystem::exists(_indexPath);
+    if (!indexExists) {
+      std::ofstream indexFile(_indexPath.data(), std::ios::binary);
+      std::ifstream dataFile(path.data(), std::ios::binary);
+      utils::RecordStreamIteration it(dataFile);
+      while (auto record = it.next()) {
+        IndexEntry entry;
+        entry.set(record->key, record->position);
+        indexFile.write(reinterpret_cast<const char*>(&entry), sizeof(entry));
+      }
+    }
+    _file.remap(_indexPath);
   }
   std::optional<size_t> find(std::string_view key) const {
-    if (auto it = _index.find(getKeySlice(key)); it != _index.end()) {
-      return it->second;
+    auto it = std::lower_bound(
+      _file.begin(),
+      _file.end(),
+      getKeySlice(key),
+      [](const auto& entry, const auto& key) {
+        return entry.view() < key;
+      });
+    if (it == _file.end() || it->view() != getKeySlice(key)) {
+      return std::nullopt;
     }
-    return std::nullopt;
+    return it->position;
   }
-  void clear() { _index.clear(); }
-  bool empty() const { return _index.empty(); }
+  void rename(std::string_view newPath) {
+    const auto newIndexPath = std::format("{}.index", newPath);
+    std::filesystem::rename(_indexPath, newIndexPath);
+    _indexPath = newIndexPath;
+    _file.remap(_indexPath);
+  }
 };
 
 // Allows access to a single segment of the sorted committed storage via
@@ -49,12 +87,11 @@ class CommittedStorage {
     }
   }
 public:
-  CommittedStorage(std::string_view path) : _path(path) {
+  CommittedStorage(std::string_view path) : _path(path), _index(path) {
     remapFileArray();
     utils::RecordIteration it(std::string_view(_file.begin(), _file.end()));
     while (auto record = it.next()) {
       _bloomFilter.add(record->key);
-      _index.add(record->key, record->position);
     }
   }
 
@@ -83,6 +120,7 @@ public:
   void rename(std::string_view newPath) {
     std::filesystem::rename(_path, newPath);
     _path = newPath;
+    _index.rename(newPath);
   }
 
   // Merges two sorted segment files into a new sorted segment file.

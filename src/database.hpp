@@ -156,9 +156,11 @@ public:
       // Remove the second segment from the committed storage
       committed->erase(action.secondSegmentId);
       std::filesystem::remove(std::format("{}/{}.data", _path, action.secondSegmentId));
+      std::filesystem::remove(std::format("{}/{}.data.index", _path, action.secondSegmentId));
 
       // Replace the first segment with the merged segment
       std::filesystem::remove(std::format("{}/{}.data", _path, action.firstSegmentId));
+      std::filesystem::remove(std::format("{}/{}.data.index", _path, action.firstSegmentId));
       action.storage.rename(std::format("{}/{}.data", _path, action.firstSegmentId));
       committed->emplace(action.firstSegmentId, std::move(action.storage));
     }
